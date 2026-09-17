@@ -44,8 +44,11 @@ Three specific unknowns, in the order they would hurt:
 
 ## Next action
 
-P1's remaining tasks, in [PILLARS.md](PILLARS.md) order — load the mod and check the anchors,
-then build the prompt debug window before P2 continues.
+P1 task 1.1 — **prove the anchors fire**. Add hit counting to `RimTalkApi.Guarded`, load a colony
+with a child, an adult and an elder, and read the assembled prompt out of RimTalk's API log.
+
+Full method in [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md). Nothing else in P1 is
+worth building until that question is answered, because everything in P2 rests on the answer.
 
 ## Known gaps
 

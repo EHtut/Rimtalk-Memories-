@@ -66,6 +66,7 @@ Source/
   Settings/       Player settings
   Util/           Logging
 docs/             Reference notes
+  specs/          Per-pillar working specs
 references/       Third-party code, read-only — not committed, see references/README.md
 1.6/Assemblies/   Build output
 ```
@@ -81,6 +82,9 @@ other instead.
 - **[STATUS.md](STATUS.md)** — how far along each pillar is. Nothing else records progress.
 - **[docs/RIMTALK-API.md](docs/RIMTALK-API.md)** — RimTalk's extension surface, established by
   decompiling v1.2.14. Recheck it when RimTalk updates.
+
+Plus `docs/specs/` — the implementation detail for whichever pillar is in flight. Currently
+[docs/specs/P1-foundation.md](docs/specs/P1-foundation.md).
 
 ## Credits
 

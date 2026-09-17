@@ -51,6 +51,8 @@ real trade, not a blocker.
 **Goal:** a trustworthy seam onto RimTalk, and the ability to see what we are sending it.
 
 **Depends on:** nothing. **Design:** [DESIGN.md](DESIGN.md) §2, §3.
+**Working spec:** [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md) — how to do the
+remaining tasks.
 
 ### In scope
 The `RimTalkApi` seam, startup vs game-load registration, settings plumbing, logging, conflict
