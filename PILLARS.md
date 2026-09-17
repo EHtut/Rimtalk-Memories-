@@ -15,6 +15,18 @@ A pillar is **done** when its exit criteria are observable in a running game —
 compiles. "Compiles" has already misled us once: everything in Pillar 1 built cleanly on day one
 and still has never been loaded into RimWorld.
 
+**But loading RimWorld costs ~20 minutes**, so there is exactly one verification run per pillar,
+at the end. Two rules follow, and they shape how every pillar is planned:
+
+- **Build the instrument before running the experiment.** Whatever is needed to read the result
+  must exist before the run, or the 20 minutes buys one answer instead of twenty.
+- **Push everything possible to the main menu.** RimWorld loads mod settings at startup, so a
+  panel in Mod Options is inspectable without loading a save. Anything checkable there should be
+  checked there.
+
+Each pillar therefore ends with a single explicit test checklist, not scattered "verify this"
+notes.
+
 Each pillar ends by updating [STATUS.md](STATUS.md) and, if the design moved, [DESIGN.md](DESIGN.md).
 Same session. A pillar that ships with stale docs is not finished.
 
@@ -68,21 +80,27 @@ Any actual context content. P1 is the pipe, not what flows through it.
 - [x] Settings class and settings window
 - [x] Prefixed logging with warn-once on the provider path
 - [x] Conflict warning for superseded mods
-- [ ] **Load it in RimWorld and confirm the three anchors actually fire.** Not all context
-      categories are wired through RimTalk's hook path — see
-      [docs/RIMTALK-API.md](docs/RIMTALK-API.md) §2. Verify `Pawn:age`, `Pawn:gender`,
-      `Environment:time` individually.
-- [ ] Debug window: last prompt built, with this mod's contributions marked and their character
-      cost shown
+- [ ] **Injection profile panel in Mod Options** — RimTalk's native preset entries, our layer on
+      top of them, and what it all costs. Reachable from the main menu; live data when a game is
+      running. Includes provider hit counting in the seam.
+- [ ] **Per-anchor mode** — append, prepend or override, chosen per section and visible in the
+      panel. Override stops RimTalk's own age line being duplicated by ours.
 - [ ] Decide who owns the total token budget ([DESIGN.md](DESIGN.md) §11)
+- [ ] **The one verification run** — load once, work the whole checklist in the spec
 
-> The debug window is the highest-leverage item here. Every pillar after this one is tuning text
-> that goes into a prompt, and tuning what you cannot see is guesswork. Build it before P2 needs it.
+> The panel is first, not second. Everything after P1 is tuning text inside a prompt, and a merged
+> prompt cannot tell you which parts are yours — so the panel prints our own layer from the
+> declarations that produced it, rather than trying to spot it in the output. It is also what makes
+> the single 20-minute run worth taking.
 
 ### Exit criteria
-1. Mod loads with no errors and the startup log lists the registered providers.
-2. RimTalk's prompt output visibly contains a line this mod injected, at each of the three anchors.
-3. The conflict warning fires (four superseded mods are installed on this machine, so it should).
+1. The injection profile panel opens **from the main menu** and correctly shows RimTalk's native
+   preset, our layer, every text variant, and the character cost — with no save loaded.
+2. Mod loads with no errors and the startup log lists the registered providers.
+3. Every registered section shows a non-zero call count, and the assembled prompt contains its
+   text at the intended position.
+4. World lore appears once per prompt, not once per participant.
+5. The conflict warning fires (four superseded mods are installed on this machine, so it should).
 
 ---
 

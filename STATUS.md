@@ -44,11 +44,15 @@ Three specific unknowns, in the order they would hurt:
 
 ## Next action
 
-P1 task 1.1 — **prove the anchors fire**. Add hit counting to `RimTalkApi.Guarded`, load a colony
-with a child, an adult and an elder, and read the assembled prompt out of RimTalk's API log.
+P1 task 1.1 — **the injection profile panel in Mod Options**, plus provider hit counting in
+`RimTalkApi.Guarded`.
 
-Full method in [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md). Nothing else in P1 is
-worth building until that question is answered, because everything in P2 rests on the answer.
+It comes first because RimWorld costs ~20 minutes to load, so there is one verification run per
+pillar and the instrument has to exist before it. The panel is reachable from the main menu —
+RimTalk's prompt presets live in its mod settings, not its save data — so most of P1 can be
+checked without loading anything.
+
+Full method in [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md).
 
 ## Known gaps
 
