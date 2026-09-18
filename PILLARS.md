@@ -80,21 +80,25 @@ the earshot question P6 answers.
 **Goal:** talk to a language model, and fail well when we cannot.
 
 **Depends on:** P1. **Design:** [DESIGN.md](DESIGN.md) §17.
+**Spec:** [docs/specs/P2-model-client.md](docs/specs/P2-model-client.md)
 
 ### Tasks
-- [ ] `IModelClient` and a message/completion shape
-- [ ] **Mock provider first** — canned replies, configurable delay and failure rate. Not a test
+- [x] `IModelClient` and a message/completion shape
+- [x] **Mock provider first** — canned replies, configurable delay and failure rate. Not a test
       fixture: it is what lets P3, P4 and all of Phase C be built and demonstrated with no key, no
       network and no bill.
-- [ ] OpenAI-compatible provider — covers OpenAI, OpenRouter, DeepSeek, Together, LM Studio and
+- [x] OpenAI-compatible provider — covers OpenAI, OpenRouter, DeepSeek, Together, LM Studio and
       Ollama's compatibility endpoint in one implementation
+- [x] JSON reader and writer — RimWorld ships no Newtonsoft
+- [x] Error handling as a first-class path: no key, bad key, rate limit, quota, timeout, malformed
+      response, local server down. Each distinct, quiet and player-readable.
+- [x] Settings UI: provider, key, model, endpoint. Key hidden behind a Show toggle, never logged.
+- [x] Harness coverage for request shaping, response parsing and every failure branch
 - [ ] Gemini native provider
 - [ ] Player2 last — its device-auth flow is the only one needing an interactive login
-- [ ] Error handling as a first-class path: no key, bad key, rate limit, quota, timeout, malformed
-      response, local server down. Each distinct, quiet and player-readable.
-- [ ] Settings UI: provider, key, model, endpoint. Keys never written to the log.
-- [ ] Token count and cost surfaced per request
-- [ ] Harness coverage for request shaping and response parsing, mock and real-shape fixtures
+- [ ] **Test-connection button** — otherwise the only way to check a key is to load a colony
+- [ ] Token count and running cost surfaced in the profile panel
+- [ ] Retry with backoff, transient failures only
 
 ### Exit criteria
 1. A round trip against the mock provider, entirely headless.

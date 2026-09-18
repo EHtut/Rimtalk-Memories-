@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Arkh.Budget;
 using Arkh.Context;
+using Arkh.Model;
 using Arkh.Settings;
 using Arkh.UI;
 using UnityEngine;
@@ -65,6 +68,70 @@ namespace Arkh
             TooltipHandler.TipRegion(buttonRect,
                 "Shows the prompt Arkh builds, block by block, and what it costs. "
                 + "Works here at the main menu — no colony needed.");
+
+            listing.GapLine();
+
+            // --- Model ------------------------------------------------------------------
+            Header(listing, "Language model");
+
+            var info = ModelProviders.For(Settings.Provider);
+
+            var providerRow = listing.GetRect(32f);
+            providerRow.width = Mathf.Min(340f, providerRow.width);
+            if (Widgets.ButtonText(providerRow, "Provider: " + info.DisplayName))
+            {
+                var options = new List<FloatMenuOption>();
+                foreach (var provider in ModelProviders.All)
+                {
+                    var captured = provider;
+                    options.Add(new FloatMenuOption(ModelProviders.For(captured).DisplayName,
+                        () => Settings.Provider = captured));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+            listing.Gap(6f);
+
+            if (!string.IsNullOrEmpty(info.Note)) listing.Label("<i>" + info.Note + "</i>");
+
+            if (Settings.Provider == ModelProvider.Mock)
+            {
+                listing.Label($"Simulated delay: <b>{Settings.MockDelayMs} ms</b>");
+                Settings.MockDelayMs = (int)listing.Slider(Settings.MockDelayMs, 0f, 3000f);
+
+                listing.Label($"Simulated failure rate: <b>{Settings.MockFailureRate:P0}</b>");
+                Settings.MockFailureRate = listing.Slider(Settings.MockFailureRate, 0f, 1f);
+                listing.Label("<i>Worth turning up for a while. Real providers fail often, and a "
+                              + "colony that has only ever seen success hides how that looks.</i>");
+            }
+            else
+            {
+                if (info.KeyRequired || Settings.Provider == ModelProvider.Custom)
+                {
+                    Settings.ApiKey = KeyField(listing, Settings.ApiKey);
+                }
+
+                Settings.ModelName = Field(listing, "Model", Settings.ModelName);
+                if (string.IsNullOrEmpty(Settings.ModelName) && !string.IsNullOrEmpty(info.DefaultModel))
+                {
+                    listing.Label("<i>Empty uses " + info.DefaultModel + ".</i>");
+                }
+
+                Settings.BaseUrlOverride = Field(listing, "Base URL", Settings.BaseUrlOverride);
+                if (string.IsNullOrEmpty(Settings.BaseUrlOverride) && !string.IsNullOrEmpty(info.BaseUrl))
+                {
+                    listing.Label("<i>Empty uses " + info.BaseUrl + ".</i>");
+                }
+            }
+
+            listing.Gap(6f);
+            listing.Label($"Reply length cap: <b>{Settings.MaxResponseTokens}</b> tokens");
+            Settings.MaxResponseTokens = (int)listing.Slider(Settings.MaxResponseTokens, 50f, 1000f);
+
+            listing.Label($"Temperature: <b>{Settings.Temperature:0.00}</b>");
+            Settings.Temperature = listing.Slider(Settings.Temperature, 0f, 2f);
+
+            listing.Label($"Timeout: <b>{Settings.TimeoutSeconds}s</b>");
+            Settings.TimeoutSeconds = (int)listing.Slider(Settings.TimeoutSeconds, 5f, 120f);
 
             listing.GapLine();
 
@@ -155,6 +222,44 @@ namespace Arkh
             listing.Label(text);
             Text.Font = GameFont.Small;
         }
+
+        /// <summary>
+        /// The API key field, hidden by default.
+        ///
+        /// Not security — anyone with the save folder has the key anyway — but people stream and
+        /// screenshot this game, and an API key sitting in plain text on a settings page is the
+        /// kind of thing that ends up on video.
+        /// </summary>
+        private static string KeyField(Listing_Standard listing, string value)
+        {
+            var row = listing.GetRect(28f);
+            var labelRect = new Rect(row.x, row.y, row.width * 0.32f, row.height);
+            var buttonRect = new Rect(row.xMax - 70f, row.y, 70f, row.height);
+            var fieldRect = new Rect(labelRect.xMax + 6f, row.y,
+                row.width - labelRect.width - 82f, row.height);
+
+            Widgets.Label(labelRect, "API key");
+
+            string result = value ?? "";
+            if (_showKey)
+            {
+                result = Widgets.TextField(fieldRect, result);
+            }
+            else
+            {
+                string shown = string.IsNullOrEmpty(result)
+                    ? "(not set)"
+                    : new string('•', Math.Min(24, result.Length));
+                Widgets.Label(fieldRect, shown);
+            }
+
+            if (Widgets.ButtonText(buttonRect, _showKey ? "Hide" : "Show")) _showKey = !_showKey;
+
+            listing.Gap(4f);
+            return result;
+        }
+
+        private static bool _showKey;
 
         /// <summary>A labelled one-line text box that keeps the label readable at any width.</summary>
         private static string Field(Listing_Standard listing, string label, string value)

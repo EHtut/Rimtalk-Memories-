@@ -1,3 +1,4 @@
+using Arkh.Model;
 using Verse;
 
 namespace Arkh.Settings
@@ -25,6 +26,49 @@ namespace Arkh.Settings
 
         /// <summary>Turns off every context injection without needing to unload the mod.</summary>
         public bool Enabled = true;
+
+        // --- Model ------------------------------------------------------------------------
+
+        /// <summary>
+        /// Defaults to the mock provider, so a fresh install does something visible before the
+        /// player has found an API key. Starting on a provider that cannot answer would make the
+        /// mod look broken when it is merely unconfigured.
+        /// </summary>
+        public ModelProvider Provider = ModelProvider.Mock;
+
+        /// <summary>
+        /// Never written to the log, and never included in a diagnostics dump. A key pasted into
+        /// a bug report is a key that has to be revoked.
+        /// </summary>
+        public string ApiKey = "";
+
+        /// <summary>Empty means the provider's default model.</summary>
+        public string ModelName = "";
+
+        /// <summary>Empty means the provider's standard base URL. Required for Custom.</summary>
+        public string BaseUrlOverride = "";
+
+        public float Temperature = 0.9f;
+
+        /// <summary>
+        /// A cap on the reply, not the prompt — the prompt is governed by the character budget
+        /// (§12). Kept low because colonists should say a line, not deliver a speech.
+        /// </summary>
+        public int MaxResponseTokens = 300;
+
+        public int TimeoutSeconds = 30;
+
+        // --- Mock provider ----------------------------------------------------------------
+
+        /// <summary>Simulated latency, so the rest of the mod meets realistic timing.</summary>
+        public int MockDelayMs;
+
+        /// <summary>
+        /// Share of mock requests that fail. Not a curiosity: failure is the common case with real
+        /// providers, and this is how we find out whether a colonist falling silent looks like a
+        /// bug to the player.
+        /// </summary>
+        public float MockFailureRate;
 
         // --- Age and gender voice --------------------------------------------------------
 
@@ -87,6 +131,16 @@ namespace Arkh.Settings
         public override void ExposeData()
         {
             Scribe_Values.Look(ref Enabled, "enabled", true);
+
+            Scribe_Values.Look(ref Provider, "provider", ModelProvider.Mock);
+            Scribe_Values.Look(ref ApiKey, "apiKey", "");
+            Scribe_Values.Look(ref ModelName, "modelName", "");
+            Scribe_Values.Look(ref BaseUrlOverride, "baseUrlOverride", "");
+            Scribe_Values.Look(ref Temperature, "temperature", 0.9f);
+            Scribe_Values.Look(ref MaxResponseTokens, "maxResponseTokens", 300);
+            Scribe_Values.Look(ref TimeoutSeconds, "timeoutSeconds", 30);
+            Scribe_Values.Look(ref MockDelayMs, "mockDelayMs", 0);
+            Scribe_Values.Look(ref MockFailureRate, "mockFailureRate", 0f);
 
             Scribe_Values.Look(ref EnableAgeVoice, "enableAgeVoice", true);
             Scribe_Values.Look(ref EnableGenderVoice, "enableGenderVoice", false);

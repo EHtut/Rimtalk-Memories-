@@ -19,11 +19,14 @@ namespace Arkh.Util
             int cut = text.LastIndexOf(' ', maxChars - 1);
             if (cut < maxChars / 2) cut = maxChars - 1;
 
-            // The characters are passed explicitly on purpose. Parameterless TrimEnd() is a
-            // .NET Core / .NET Standard 2.1 addition: it compiles happily against our reference
-            // assemblies and then throws MissingMethodException on the .NET Framework-era runtime
-            // the game actually uses. This overload takes params char[] and has always existed.
-            // Do not "simplify" this back.
+            // Four characters passed explicitly, on purpose.
+            //
+            // Two of String's Trim overloads are .NET Core additions that compile against our
+            // reference assemblies and then throw MissingMethodException on the runtime the game
+            // actually uses: the parameterless TrimEnd(), and the single-char TrimEnd(char).
+            // Passing two or more chars binds to params char[], which has always existed.
+            //
+            // Both have already bitten this project once each. Do not "simplify" this back.
             return text.Substring(0, cut).TrimEnd(' ', '\t', '\n', '\r') + "…";
         }
     }
