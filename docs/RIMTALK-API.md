@@ -139,10 +139,42 @@ entries stayed under the original string — and removal by one id would miss th
 warning and returns `false`.
 
 Hooks, variables and injected sections have no such requirement — they go into static registries
-and can be registered at startup. See [../DESIGN.md](../DESIGN.md) §3.
+and can be registered at startup. See [../DESIGN.md](../DESIGN.md) §3.2.
 
 `PromptEntry` ids are deterministic from `(modId, name)` via `GenerateDeterministicId`, so the
 same entry re-registers to the same id across sessions.
+
+### 6.1 Entry content is a live template, not stored text
+
+This is the single most useful fact in this document, and the least obvious.
+
+`BuildMessagesFromPreset` (~18500) assembles the message list like this:
+
+```csharp
+return PromptPresetAssembler.AssembleMessages(
+    preset,
+    (string content) => ScribanParser.Render(content, context),
+    chatHistory, segments);
+```
+
+**Every entry's content is rendered through Scriban on every prompt build**, and Scriban resolution
+consults `ContextHookRegistry` for variables other mods registered (~17203–17265).
+
+So `AddPromptEntry` + `RegisterContextVariable` together give:
+
+- **Arbitrary placement** — before or after any named entry, at any `PromptRole`, `Relative` or
+  `InChat` at a chosen depth.
+- **Arbitrary content, recomputed per prompt** — the entry stores `{{our_variable}}`; the provider
+  runs fresh each time.
+- **The whole context**, not just a pawn: `RegisterContextVariable` takes
+  `Func<PromptContext, string>`, and `PromptContext` carries `CurrentPawn`, `AllPawns`,
+  `Participants`, `TalkType`, `ChatHistory`, `Map`, `IsMonologue` and the rest.
+
+A section rendering empty costs nothing, so an entry can be conditional simply by returning `""`.
+
+This is why attaching to RimTalk does not make prompt injection static, and it is the mechanism to
+reach for when an anchor is the wrong shape for what you want to say. See
+[../DESIGN.md](../DESIGN.md) §2.1.
 
 ## 7. The talk data model
 
@@ -164,6 +196,32 @@ Useful beyond context injection — the memory and response-type work will need 
 
 `TalkType` being closed is why whisper/shout/thought have to be this mod's own concept rather than
 new enum members ([../DESIGN.md](../DESIGN.md) §9).
+
+## 7.1 Borrowing the AI client for work that is not a conversation
+
+`RimTalk.Client.AIClientFactory.GetAIClientAsync()` is **public** and returns an `IAIClient` bound
+to whatever provider, key and model the player already configured in RimTalk:
+
+```csharp
+public interface IAIClient
+{
+    Task<Payload> GetChatCompletionAsync(
+        List<(Role role, string message)> prefixMessages,
+        List<(Role role, string message)> messages,
+        Action<Payload> onRequestPrepared = null);
+    // plus image and streaming overloads
+}
+```
+
+That means a feature which is not a pawn talking — rewriting a book, drafting a quest — does not
+have to pretend to be one. It builds its own messages and makes its own request, reusing the
+player's configured connection without asking them to set one up twice, and without touching the
+prompt pipeline at all.
+
+`Payload` carries `TokenCount` and `ErrorMessage`, so cost and failure are both visible.
+
+This is the basis of [../DESIGN.md](../DESIGN.md) §14 and PILLARS P9, and it is why that pillar
+depends on nothing else.
 
 ## 8. Prior art in the mods being replaced
 

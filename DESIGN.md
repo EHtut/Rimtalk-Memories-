@@ -38,6 +38,64 @@ resort, each use is justified in §10, and each one is isolated behind
 
 The single seam is `Source/Integration/RimTalkApi.cs`. Feature code never calls RimTalk directly.
 
+### 2.1 Four ways to reach the prompt, and they are all dynamic
+
+It is easy to look at the anchor list and conclude we are limited to decorating 33 pawn fields.
+We are not. There are four mechanisms, and the last two are the powerful ones:
+
+| | Mechanism | Placement | Content |
+|---|---|---|---|
+| 1 | **Hook** on a category | Folded into that category's value | Computed per prompt |
+| 2 | **Injection** at a category | A block beside that category | Computed per prompt |
+| 3 | **Prompt entry + registered variable** | *Anywhere in the message list* | Computed per prompt |
+| 4 | **Borrowed AI client** | Not a prompt at all — our own request | Entirely ours |
+
+**Every preset entry's content is rendered through Scriban at build time**
+(`BuildMessagesFromPreset` → `ScribanParser.Render(content, context)`), and Scriban resolution
+consults the hook registry for variables other mods registered. So a prompt entry whose content is
+`{{rtm_recalled_memory}}`, inserted before or after any named entry, at any role, is a block we
+place ourselves and fill freshly on every single prompt. `RegisterContextVariable` hands the
+provider the whole `PromptContext` — current pawn, all participants, talk type, chat history, map —
+not merely a `Pawn`.
+
+That is arbitrary position with arbitrary per-prompt content. Nothing about attaching to RimTalk
+makes prompt injection static.
+
+Mechanism 4 matters for work that is not a conversation at all. `AIClientFactory.GetAIClientAsync()`
+is public and returns an `IAIClient` bound to whatever provider, key and model the player already
+configured in RimTalk. Rewriting a book or drafting a quest is a one-off generation, not a pawn
+talking, so it borrows that connection and skips the prompt pipeline entirely.
+
+**The rule that follows: every setting this mod adds must have a visible path to the prompt.**
+A setting that changes nothing the model sees is a lie in the options menu. The injection profile
+panel is how that stays honest — if a setting cannot be traced to text in that panel, it is not
+finished.
+
+### 2.2 Do we fork RimTalk?
+
+Considered seriously, and the answer is no — but the option is kept open, which is why the seam
+exists at all.
+
+**What forking would buy:** total control over pawn selection, response post-processing, request
+shape. Real limitations, and §10 lists them.
+
+**What it would cost.** RimTalk is roughly 25,000 lines decompiled and actively maintained. It
+carries compatibility work for Bubbles, Character Editor, battle logs, ideology, genes and the
+interaction log; eight languages; and six LLM providers with streaming, retry, quota handling and
+device auth. Reimplementing that is not a pillar, it is a different project. And the premise of
+this mod is that companion mods break because they are welded to RimTalk's internals — forking is
+the most extreme form of that problem, not the cure for it.
+
+**And the part that settles it:** RimTalk ships no source and no licence file. Forking a
+decompiled Workshop mod into a public repository would be redistributing someone else's
+copyrighted work without permission. Reading it to understand the API is fine and is why
+`references/` exists — and why `references/` is gitignored.
+
+**So:** build on the API, keep every RimTalk call behind `RimTalkApi`, and use Harmony only where
+§10 says. If RimTalk ever becomes a genuine blocker, the seam is the thing that makes a different
+backend a rewrite of one file rather than of the mod. Revisit this decision if that happens; do
+not drift into it.
+
 ## 3. Lifecycle: where state lives, and when we register
 
 ### 3.1 Settings live in mod settings, never in the save
@@ -238,5 +296,105 @@ requires none at all, which is the point of §2.
   Where does the eligibility check live — memory, or context?
 - **Memory persistence across colonies.** Almost certainly per-save (`GameComponent`), but a
   pawn who leaves in a caravan and returns must keep theirs.
-- **Token budget.** Every feature here adds prompt text. There should be one place that knows the
-  total budget and divides it, rather than each feature capping itself in isolation.
+- **Does folded age text read well inside a template?** Age now folds into RimTalk's own age value,
+  so a template using `{{pawn.age}}` gets `34 — speaks from long experience…` inline. Whether that
+  reads naturally is a judgement that needs to be seen, not reasoned about.
+
+## 12. The character budget
+
+One place knows how much prompt text this mod may add, and divides it. Without that, every feature
+caps itself in isolation and eight "reasonable" caps still produce a prompt nobody intended.
+
+Allocation is **priority-ordered and greedy**: the most important section takes what it wants, the
+next takes what is left. The order is a design statement, not a tuning constant, and it lives in
+`BudgetOrder`:
+
+1. **What a pawn remembers** — usually the reason the line was worth generating.
+2. **How they speak** — age, then gender. Short, and they change the output out of all proportion
+   to their length.
+3. **What everyone knows** — colony lore, then world lore. Background, large, and not specific to
+   this moment, so they are what should give way.
+
+Pawn sections are built once per participant and environment sections once per prompt, so a pawn
+section's real cost is its text times the number of people talking. The budget multiplies
+accordingly, using a player-set assumed conversation size.
+
+Counting is in **characters, not tokens** — real tokenisation is not affordable on the tick path
+and varies by provider. Roughly four characters per token in English; CJK runs far denser, so the
+number is presented to the player as what it is, a character budget, rather than a token estimate
+dressed up as precision.
+
+Recomputed only when something changes, never per prompt. §13 is where that stops being enough.
+
+## 13. Smart context
+
+RimTalk builds the same context every time: traits, skills, health, thoughts, social, surroundings.
+Thorough, and mostly wasted — a pawn arguing about dinner does not need their full medical history,
+and the tokens spent on it are tokens not spent on something that mattered.
+
+**Smart context scores each fragment against the present moment** — the pawn's job, mood,
+participants, recent events — and spends the budget on what scores highest, rather than on a fixed
+list. It is the same machinery as memory relevance (§8.1) pointed at RimTalk's own context instead
+of at memories, and the two should share an implementation rather than growing two scorers.
+
+The mechanism is already available and does not need Harmony: an `Override` hook on a category
+replaces RimTalk's value for it, so we can hand back a *filtered* thought list where RimTalk would
+have dumped all of them. Context Upgrade does this by patching `ContextBuilder` internals; we can
+do it through the published API.
+
+This turns §12's allocation from static into per-prompt, which is the one thing §12 says it does
+not do. That is the real cost of this pillar: allocation moves onto the tick path, so it has to
+become cheap enough to run per prompt — bounded candidate sets and precomputed scores, exactly as
+§8.3 requires for memory.
+
+## 14. Generated literature and quests
+
+Books, art and quests written by the model rather than by RimWorld's template grammar.
+
+These are **not conversations**, and that changes the architecture: there is no pawn talking, no
+prompt to inject into, and nothing for the context pipeline to do. They use mechanism 4 from §2.1
+— `AIClientFactory.GetAIClientAsync()` returns a client bound to the player's already-configured
+provider, key and model, and we make our own request with our own messages.
+
+That means this work is largely independent of everything in §1–§13, and can be built without
+touching the context layer at all.
+
+Three targets, in increasing difficulty:
+
+- **Books.** Rewrite title and description so a colony library is not six copies of the same
+  generated tract. Cheap: generate once, store on the thing, never regenerate.
+- **Art.** Sculpture and engraving descriptions, which RimWorld already generates from a grammar
+  and which read as such.
+- **Quests.** Harder, because quest text is load-bearing — a description that contradicts the
+  quest's actual mechanics is worse than a dull one. Generated text must be *descriptive of* the
+  real quest parameters, never a source of them.
+
+Prior art to read first: RimTalk – Expand Literature (`cj.rimtalk.literature`, by RimTalk's own
+author) and RimTalk – Quests (`rimtalk.quests`).
+
+Caching is the whole game here. A book generated once and stored costs one request; a book
+regenerated on every inspection costs a request every time someone looks at a shelf.
+
+## 15. Mod integration and detection
+
+Other mods add things pawns should be able to talk about. A detection layer lets a mod's presence
+contribute vocabulary, context and events without this mod hard-referencing it.
+
+Shape: a registry of integration profiles, each keyed by package id, activated only when
+`ModsConfig.IsActive` says so, contributing context fragments through the same declaration
+mechanism as everything else (§2.1) so they inherit the budget and appear in the profile panel.
+
+First targets: **RimTalk Custom Events** (`ethan.rimtalkcustomevents`, ours — so the integration can
+be designed from both sides at once) and **Arkhdottir**. Reflection, not hard references: an
+integration that crashes when its mod is absent is worse than no integration.
+
+## 16. RJW compatibility
+
+Optional module, gated on `rim.job.world` being active, built **last**.
+
+Last for two reasons. It is the only feature here with a hard dependency on a mod most players do
+not run, so it must be cleanly separable; and it is the one place where context leaking into the
+wrong prompt is most obviously undesirable, which means it wants the earshot and scoping work from
+P3 finished first rather than bolted on.
+
+Prior art already installed: `RimtalkRJW2` and `kuwa.RJWSexInteractionReport`.

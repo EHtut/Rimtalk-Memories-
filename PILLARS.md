@@ -16,19 +16,20 @@ compiles. "Compiles" has already misled us once: everything in Pillar 1 built cl
 and still has never been loaded into RimWorld.
 
 **But loading RimWorld costs ~20 minutes**, so there is exactly one verification run per pillar,
-at the end. Two rules follow, and they shape how every pillar is planned:
+at the end. Three rules follow, and they shape how every pillar is planned:
 
 - **Build the instrument before running the experiment.** Whatever is needed to read the result
   must exist before the run, or the 20 minutes buys one answer instead of twenty.
 - **Push everything possible to the main menu.** RimWorld loads mod settings at startup, so a
   panel in Mod Options is inspectable without loading a save. Anything checkable there should be
   checked there.
+- **Run `tools/smoke-test.ps1` before every verification run.** It drives the built assembly by
+  reflection with no game loaded. It already caught a `MissingMethodException` that would have
+  presented in game as a dead anchor and cost a second load chasing the wrong cause.
 
-Each pillar therefore ends with a single explicit test checklist, not scattered "verify this"
-notes.
-
-Each pillar ends by updating [STATUS.md](STATUS.md) and, if the design moved, [DESIGN.md](DESIGN.md).
-Same session. A pillar that ships with stale docs is not finished.
+Each pillar ends with a single explicit test checklist, and by updating [STATUS.md](STATUS.md) and,
+if the design moved, [DESIGN.md](DESIGN.md). Same session. A pillar that ships with stale docs is
+not finished.
 
 ## Order
 
@@ -37,24 +38,31 @@ P1 Foundation
      │
      ├──────────────┬──────────────┐
      ▼              ▼              ▼
-P2 Voice & lore   P3 Earshot   (P6 Dialogue templates — after P2)
+P2 Voice & lore   P3 Earshot   P7 Dialogue templates (after P2)
      │              │
      └──────┬───────┘
             ▼
       P4 Memory core
             │
             ▼
-      P5 Recall
+      P5 Recall ──────► P6 Smart context (shares the relevance scorer)
+            │
+            ▼
+      P8 Actions ── blocked on reference material
 
-P7 Actions — blocked on reference material, unscheduled
+P9  Literature & quests   — independent of everything above, see below
+P10 Mod integration       — after P2
+P11 RJW compatibility     — last, after P3
 ```
 
-**A change from the original plan.** The first pass put memory before distance. It should be the
-other way round, and the reason is P4: writing a memory means deciding *who witnessed the thing*.
-That is the same earshot question P3 answers. Build P3 first and P4 gets witness detection for
-free; build P4 first and it needs a crude proximity check that P3 then has to tear out. Ordering
-above reflects that. Say so if you would rather have memory sooner and take the rework — it is a
-real trade, not a blocker.
+**P9 does not queue behind anything.** Books and quests are not conversations: they use RimTalk's
+AI client directly rather than its prompt pipeline ([DESIGN.md](DESIGN.md) §14), so they touch none
+of the context work. Pull it forward whenever the context pillars need a break.
+
+**P3 before P4** is deliberate and was a change from the first plan. Writing a memory means
+deciding who witnessed the thing, which is the same earshot question P3 answers. Build P3 first and
+P4 inherits witness detection; build P4 first and it needs a crude proximity check that P3 then
+tears out.
 
 ---
 
@@ -62,14 +70,12 @@ real trade, not a blocker.
 
 **Goal:** a trustworthy seam onto RimTalk, and the ability to see what we are sending it.
 
-**Depends on:** nothing. **Design:** [DESIGN.md](DESIGN.md) §2, §3.
-**Working spec:** [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md) — how to do the
-remaining tasks.
+**Depends on:** nothing. **Design:** [DESIGN.md](DESIGN.md) §2, §3, §12.
+**Working spec:** [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md).
 
 ### In scope
 The `RimTalkApi` seam, startup vs game-load registration, settings plumbing, logging, conflict
-detection against the mods being replaced, and a debug view of what this mod contributed to the
-last prompt.
+detection, the character budget, and a panel showing what this mod contributed.
 
 ### Out of scope
 Any actual context content. P1 is the pipe, not what flows through it.
@@ -80,28 +86,20 @@ Any actual context content. P1 is the pipe, not what flows through it.
 - [x] Settings class and settings window
 - [x] Prefixed logging with warn-once on the provider path
 - [x] Conflict warning for superseded mods
-- [x] **Injection profile panel in Mod Options** — RimTalk's native preset entries, our layer on
-      top of them, and what it all costs. Reachable from the main menu; live data when a game is
-      running. Includes provider hit counting in the seam.
-- [x] **Per-anchor mode** — injected before/after, folded into RimTalk's text, or replacing it.
-      A runtime setting, so one load can compare all four. Folding is the default for age and
-      gender, which stops RimTalk's own age line being duplicated by ours.
-- [ ] Decide who owns the total token budget ([DESIGN.md](DESIGN.md) §11)
+- [x] Injection profile panel in Mod Options, reachable from the main menu
+- [x] Per-anchor mode — injected before/after, folded in, or replacing RimTalk's text
+- [x] Character budget, priority-ordered ([DESIGN.md](DESIGN.md) §12)
+- [x] `tools/smoke-test.ps1` — drives the assembly with no game loaded
 - [ ] **The one verification run** — load once, work the whole checklist in the spec
 
-> The panel is first, not second. Everything after P1 is tuning text inside a prompt, and a merged
-> prompt cannot tell you which parts are yours — so the panel prints our own layer from the
-> declarations that produced it, rather than trying to spot it in the output. It is also what makes
-> the single 20-minute run worth taking.
-
 ### Exit criteria
-1. The injection profile panel opens **from the main menu** and correctly shows RimTalk's native
-   preset, our layer, every text variant, and the character cost — with no save loaded.
+1. The panel opens **from the main menu** and correctly shows RimTalk's native preset, our layer,
+   every text variant, and the budget allocation — with no save loaded.
 2. Mod loads with no errors and the startup log lists the registered providers.
 3. Every registered section shows a non-zero call count, and the assembled prompt contains its
    text at the intended position.
 4. World lore appears once per prompt, not once per participant.
-5. The conflict warning fires (four superseded mods are installed on this machine, so it should).
+5. The conflict warning fires.
 
 ---
 
@@ -116,27 +114,26 @@ Age voice, gender voice, world lore, colony lore and its scoping, prompt-preset 
 starter preset worth shipping.
 
 ### Out of scope
-Anything conditional on the moment — that is templates (P6). P2 is standing context: true of the
-pawn or the world regardless of what is happening.
+Anything conditional on the moment — that is templates (P7). P2 is standing context.
 
 ### Tasks
 - [x] Age voice, five bands, player-editable, empty-adult default
 - [x] Gender voice, off by default with empty text
 - [x] World lore, map-wide, character-capped, word-boundary trim
-- [x] `{{pawn.ageband}}` template variable
+- [x] `{{pawn.ageband}}` and `{{worldlore}}` template variables
 - [ ] Colony lore, and the eligibility rule that keeps it from prisoners and visitors
-      ([DESIGN.md](DESIGN.md) §11 — open question: does that check live in context or memory?)
 - [ ] Per-save lore override, so one colony's history is not global
-- [ ] Prompt-entry registration in a `GameComponent` — the second registration moment
-      ([DESIGN.md](DESIGN.md) §3). First code that needs it.
+- [ ] **Prompt-entry registration in a `GameComponent`** — the second registration moment
+      ([DESIGN.md](DESIGN.md) §3.2), and the first use of mechanism 3 from §2.1: a block we place
+      ourselves, anywhere in the message list, filled per prompt
 - [ ] A shipped starter preset
-- [ ] Settings UI pass once the field count grows past what one scroll pane carries well
+- [ ] Settings UI pass once the field count outgrows one scroll pane
 
 ### Exit criteria
 1. A child, an adult and an elder in the same colony demonstrably speak in different registers.
 2. World lore appears once per prompt, not once per participant.
 3. A prisoner does not speak from colony-internal knowledge.
-4. Turning a feature off removes its text from the next prompt — verified in the debug window.
+4. Turning a feature off removes its text from the next prompt — verified in the panel.
 
 ---
 
@@ -147,32 +144,30 @@ pawn or the world regardless of what is happening.
 **Depends on:** P1. **Design:** [DESIGN.md](DESIGN.md) §9, §10.
 
 ### In scope
-One earshot model, the distance settings on top of it, response types (whisper / shout / thought)
-and their display, and separate length caps for monologue and conversation.
+One earshot model, distance settings on top of it, response types (whisper / shout / thought) and
+their display, and separate length caps for monologue and conversation.
 
 ### Out of scope
 Using earshot to decide who witnessed an event — that is P4 consuming this, not P3 building it.
 
 ### Tasks
-- [ ] **The earshot model first.** One function that answers: can B perceive A saying X from
-      distance D, through this wall, at this volume? Everything else in this pillar is a caller.
-      Get this interface right and P4 inherits witness detection.
+- [ ] **The earshot model first.** One function: can B perceive A saying X from distance D, through
+      this wall, at this volume? Everything else here is a caller, and P4 inherits it.
 - [ ] Distance settings: talk, hearing, viewing, announcement, context radius, same-room toggle.
       Distance Control's defaults (20 / 10 / 20 / 30 / 5 / on) are a sane start.
 - [ ] Harmony patches for pawn selection — `PawnSelector.GetNearbyPawnsInternal`,
-      `CustomDialogueService.CanTalk`, `ContextHelper.CollectNearbyContext`. Log each one in
+      `CustomDialogueService.CanTalk`, `ContextHelper.CollectNearbyContext`. Log each in
       [DESIGN.md](DESIGN.md) §10 as it lands.
-- [ ] Suppress the "slighted" social debuff when a pawn was merely out of earshot. Distance
-      Control patches `MemoryThoughtHandler.TryGainMemory` for this — a good catch worth keeping,
-      and players will notice its absence.
-- [ ] Response types as this mod's own concept. `TalkType` is a closed enum
+- [ ] Suppress the "slighted" social debuff when a pawn was merely out of earshot — Distance
+      Control patches `MemoryThoughtHandler.TryGainMemory` for this, and players notice its absence.
+- [ ] Response types as our own concept. `TalkType` is a closed enum
       ([docs/RIMTALK-API.md](docs/RIMTALK-API.md) §7), so these cannot be new members.
 - [ ] Response type drives the prompt: tell the model it is a whisper before it writes one.
 - [ ] Response type drives display and audience — a thought has an audience of one.
 - [ ] Monologue and conversation length caps, separately.
 
 ### Exit criteria
-1. Two pawns in separate rooms do not start a conversation with the same-room setting on.
+1. Two pawns in separate rooms do not start a conversation with same-room on.
 2. A whisper reaches its target and nobody else; a shout carries further than normal speech.
 3. A thought is visible to the player and to no pawn.
 4. Being out of earshot does not generate a snub debuff.
@@ -184,29 +179,26 @@ Using earshot to decide who witnessed an event — that is P4 consuming this, no
 
 **Goal:** things that happen get remembered, with weight, and survive a save/load.
 
-**Depends on:** P1, P3 (for witness detection). **Design:** [DESIGN.md](DESIGN.md) §8.1–§8.3.
+**Depends on:** P1, P3. **Design:** [DESIGN.md](DESIGN.md) §8.1–§8.3.
 
 ### In scope
-The memory record, what writes one, significance at write time, decay, pinning, persistence, and
-a way to look at a pawn's memories.
+The memory record, what writes one, significance at write time, decay, pinning, persistence, and a
+way to look at a pawn's memories.
 
 ### Out of scope
-Getting memories back out and into a prompt. That is P5. P4 ends with a correct, inspectable
-store that nothing reads yet.
+Getting memories back out and into a prompt — that is P5. P4 ends with a correct, inspectable store
+that nothing reads yet.
 
 ### Tasks
 - [ ] Memory record type and its `ExposeData`
-- [ ] Persistence in a `GameComponent`, and the caravan case — a pawn who leaves and returns keeps
-      theirs ([DESIGN.md](DESIGN.md) §11)
+- [ ] Persistence in a `GameComponent`, and the caravan case
 - [ ] Capture sources: RimTalk conversations, colony events, battle and social log. Decide what is
-      worth a memory at all — this is the difference between a life and a diary of every meal.
+      worth a memory at all — the difference between a life and a diary of every meal.
 - [ ] Witness detection via P3's earshot model
-- [ ] Significance scoring at write time, from event kind, mood swing, and closeness to those
-      involved
+- [ ] Significance at write time, from event kind, mood swing, and closeness to those involved
 - [ ] Decay with a half-life that scales with significance
 - [ ] Pinning, exempt from decay
-- [ ] Bounded per-pawn candidate set, kept in decayed-significance order — the thing that makes
-      P5 affordable
+- [ ] Bounded per-pawn candidate set in decayed-significance order — what makes P5 affordable
 - [ ] Dev window: inspect one pawn's memories with scores and ages
 
 ### Exit criteria
@@ -222,24 +214,22 @@ store that nothing reads yet.
 
 **Goal:** the right memories, at the right moment, with the ones that belong together arriving together.
 
-**Depends on:** P2 (injection), P4 (the store). **Design:** [DESIGN.md](DESIGN.md) §8.1, §8.3, §8.4.
-
-### In scope
-Relevance scoring, retrieval within the tick budget, chained recall, and injecting the result.
+**Depends on:** P2, P4. **Design:** [DESIGN.md](DESIGN.md) §8.1, §8.3, §8.4.
 
 ### Tasks
 - [ ] Relevance scoring against the present moment: participant overlap, proximity, topical match
       against job / thoughts / active events, emotional congruence
-- [ ] Retrieval — combine decayed significance with relevance, take top N above a floor
+- [ ] Retrieval — decayed significance combined with relevance, top N above a floor
 - [ ] **Stay inside the tick budget.** Providers run on the main thread, inline
       ([docs/RIMTALK-API.md](docs/RIMTALK-API.md) §4). Measure it; do not assume it.
 - [ ] Memory links: same originating event, shared participants, causal follow-on
-- [ ] Chained recall at a lower score bar than primary selection, with depth and total capped
-- [ ] Inject into pawn context
-- [ ] Dev window: for the last recall, show what was chosen and the score breakdown that chose it
+- [ ] Chained recall at a lower score bar than primary selection, depth and total capped
+- [ ] Inject via a prompt entry and a registered context variable — mechanism 3, so recall lands
+      where we choose rather than beside whatever anchor is nearest
+- [ ] Panel view: for the last recall, what was chosen and the score breakdown that chose it
 
-> The score-breakdown view is not optional polish. Significance, relevance, decay and chain bar
-> are four interacting knobs, and tuning four knobs blind does not converge.
+> The score-breakdown view is not optional polish. Significance, relevance, decay and chain bar are
+> four interacting knobs, and tuning four knobs blind does not converge.
 
 ### Exit criteria
 1. A pawn brings up a relevant past event unprompted, in a fitting moment.
@@ -249,26 +239,47 @@ Relevance scoring, retrieval within the tick budget, chained recall, and injecti
 
 ---
 
-## P6 — Dialogue templates
+## P6 — Smart context
+
+**Goal:** send what matters now, instead of everything every time.
+
+**Depends on:** P5 (shares the relevance scorer). **Design:** [DESIGN.md](DESIGN.md) §13.
+
+### In scope
+Scoring RimTalk's own context fragments for relevance to the moment, and spending the budget on
+what scores highest. Turns §12's allocation from static into per-prompt.
+
+### Tasks
+- [ ] Reuse P5's relevance scorer against context fragments rather than memories — one scorer, not two
+- [ ] `Override` hooks that hand back filtered versions of RimTalk's categories (thoughts, social,
+      health, surroundings) instead of its full dumps. No Harmony needed; Context Upgrade patched
+      `ContextBuilder` for this and did not have to.
+- [ ] Per-prompt allocation, cheap enough for the tick path — bounded candidates, precomputed scores
+- [ ] Panel view: what was dropped this prompt, and why
+
+### Exit criteria
+1. A pawn arguing about dinner does not carry their full medical history into the prompt.
+2. A pawn who was just shot does.
+3. Measurable reduction in characters sent, with no loss of the text that mattered.
+4. No measurable frame cost.
+
+---
+
+## P7 — Dialogue templates
 
 **Goal:** beats the player wants to happen on purpose.
 
 **Depends on:** P2. **Design:** [DESIGN.md](DESIGN.md) §7 — thin, needs real design work first.
 
-### In scope
-Authored templates with trigger conditions and slots filled from game state, plus an editor.
-
 ### Notes
-No prior art to absorb. RimTalk Dialogue Patch is a UI mod for RimTalk's talk window despite the
-name, so nothing here comes for free.
-
-RimTalk Custom Events already solves a close problem with JSON-authored multi-phase events. Reuse
-that format rather than inventing a second one — and consider whether this pillar belongs in that
-mod instead of this one.
+No prior art to absorb — RimTalk Dialogue Patch is a UI mod for RimTalk's talk window despite the
+name. RimTalk Custom Events already solves a close problem with JSON-authored multi-phase events;
+reuse that format rather than inventing a second one, and consider whether this pillar belongs in
+that mod instead of this one.
 
 ### Tasks
-- [ ] Design it properly, in [DESIGN.md](DESIGN.md) §7, before any code
-- [ ] Decide: reuse Custom Events' JSON shape, or a new format, or move the feature there entirely
+- [ ] Design it properly in [DESIGN.md](DESIGN.md) §7 before any code
+- [ ] Decide: reuse Custom Events' JSON shape, a new format, or move the feature there entirely
 - [ ] Trigger conditions and slot filling
 - [ ] Authoring UI
 
@@ -278,26 +289,103 @@ mod instead of this one.
 
 ---
 
-## P7 — Actions
+## P8 — Actions
 
 **Goal:** unknown until the reference lands.
 
-**Depends on:** reference material. **Design:** none yet — this is the acknowledged gap.
+**Depends on:** reference material. **Design:** none yet — the acknowledged gap.
 
-The original brief asked for "a better action system with smart action type retrieval". That
-reads two ways and they are different projects:
+"A better action system with smart action type retrieval" reads two ways, and they are different
+projects:
 
 1. **Dialogue drives the game** — what a pawn says produces a RimWorld outcome: a job, an
    interaction, a mood effect, a relationship change.
-2. **Better action selection inside RimTalk** — RimTalk already classifies responses
-   (`InteractionType`: None / Insult / Slight / Chat / Kind). This would be choosing among those
-   more intelligently, scored the way memory retrieval is scored.
+2. **Better action selection inside RimTalk** — it already classifies responses (`InteractionType`:
+   None / Insult / Slight / Chat / Kind); this would choose among them more intelligently, scored
+   the way memory retrieval is scored.
 
-Ethan is supplying an actions mod to `references/`. Read it first — it should settle which
-reading is meant — then write the design and come back here to fill this pillar in properly.
+An actions mod is being added to `references/`. Read it first, then write the design.
 
 ### Tasks
 - [ ] Read the reference once it lands
-- [ ] Settle which of the two readings this is
+- [ ] Settle which reading this is
 - [ ] Write the design in [DESIGN.md](DESIGN.md)
 - [ ] Re-scope this pillar and place it in the order above
+
+---
+
+## P9 — Literature and quests
+
+**Goal:** books, art and quests written by the model instead of by RimWorld's template grammar.
+
+**Depends on:** nothing. **Design:** [DESIGN.md](DESIGN.md) §14.
+
+### Why it is independent
+These are not conversations. There is no pawn talking and no prompt to inject into, so this uses
+`AIClientFactory.GetAIClientAsync()` — the player's already-configured provider, key and model —
+and makes its own request. It touches none of P1–P8 and can be pulled forward at any time.
+
+### Tasks
+- [ ] Read the prior art: RimTalk – Expand Literature (`cj.rimtalk.literature`, by RimTalk's own
+      author) and RimTalk – Quests (`rimtalk.quests`)
+- [ ] A small client wrapper in `Source/Integration/` — every borrowed-client call in one place,
+      same rule as `RimTalkApi`
+- [ ] **Caching and storage first.** A book generated once and stored costs one request; one
+      regenerated on inspection costs a request every time someone looks at a shelf. Get this right
+      before generating anything.
+- [ ] Books: title and description
+- [ ] Art: sculpture and engraving descriptions
+- [ ] Quests: descriptive of the real quest parameters, **never a source of them** — text that
+      contradicts the quest's mechanics is worse than dull text
+- [ ] Failure behaviour: no API key, no network, quota exhausted. Vanilla text, quietly.
+
+### Exit criteria
+1. Two copies of the same book title read differently and plausibly.
+2. A generated quest description matches what the quest actually asks for.
+3. Nothing regenerates on inspection; the request count stays flat while reading.
+4. With the API unreachable, everything falls back to vanilla text with no errors.
+
+---
+
+## P10 — Mod integration and detection
+
+**Goal:** other mods' content becomes something pawns can talk about, without hard references.
+
+**Depends on:** P2. **Design:** [DESIGN.md](DESIGN.md) §15.
+
+### Tasks
+- [ ] Integration profile registry keyed by package id, activated on `ModsConfig.IsActive`
+- [ ] Profiles contribute through the same declaration mechanism as everything else, so they
+      inherit the budget and appear in the profile panel
+- [ ] Reflection only — an integration that crashes when its mod is absent is worse than none
+- [ ] **RimTalk Custom Events** (`ethan.rimtalkcustomevents`) — ours, so it can be designed from
+      both sides at once
+- [ ] **Arkhdottir**
+- [ ] Panel view: which integrations are active and what each contributes
+
+### Exit criteria
+1. With an integration's mod absent, nothing loads and nothing errors.
+2. With it present, its content reaches the prompt and shows in the panel.
+3. Custom Events and Memories running together produce no duplicated context.
+
+---
+
+## P11 — RJW compatibility
+
+**Goal:** an optional module for colonies running RJW.
+
+**Depends on:** P3, P10. **Design:** [DESIGN.md](DESIGN.md) §16. **Built last.**
+
+Last for two reasons: it is the only feature with a hard dependency on a mod most players do not
+run, so it must be cleanly separable; and it is where context reaching the wrong prompt matters
+most, which wants P3's earshot and scoping finished rather than bolted on.
+
+### Tasks
+- [ ] Gate entirely on `rim.job.world`, through P10's detection
+- [ ] Read the prior art: `RimtalkRJW2` (already installed) and `kuwa.RJWSexInteractionReport`
+- [ ] Context contributions, scoped by the earshot rules from P3
+- [ ] Verify the module compiles out cleanly — no RJW types in the main assembly's references
+
+### Exit criteria
+1. With RJW absent, no errors, no loaded types, nothing in the panel.
+2. With RJW present, context reaches only the pawns P3's rules say it should.
