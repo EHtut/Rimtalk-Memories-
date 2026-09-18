@@ -41,6 +41,13 @@ Last updated: **2026-09-17**
   the message list, filled fresh on every prompt.
 - **Budget order** ([DESIGN.md](DESIGN.md) §12): memory, then how they speak, then what everyone
   knows.
+- **RimTalk is transport; the content is ours** ([DESIGN.md](DESIGN.md) §2.1a). Its whole prompt is
+  five preset entries. Four are ours to replace — its voice, its context dump, its chat-history
+  "memory". Only the JSONL format entry must survive, because RimTalk parses against it. Persona
+  goes via an `Override` hook on `Pawn:personality`.
+- **Advanced prompt mode is the gate.** `UseAdvancedPromptMode` is off by default; in simple mode
+  RimTalk re-inserts its built-in entries, so our additions survive but our removals do not. P2
+  owns detecting it and offering to turn it on.
 
 ## The honest state of P1 and P2
 

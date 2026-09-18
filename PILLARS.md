@@ -110,11 +110,15 @@ Any actual context content. P1 is the pipe, not what flows through it.
 **Depends on:** P1. **Design:** [DESIGN.md](DESIGN.md) §4, §5, §6.
 
 ### In scope
-Age voice, gender voice, world lore, colony lore and its scoping, prompt-preset entries, and a
-starter preset worth shipping.
+Age voice, gender voice, world lore, colony lore and its scoping, and **taking ownership of the
+prompt** — our own preset in place of RimTalk's, its persona replaced, its context dump displaced
+or filtered ([DESIGN.md](DESIGN.md) §2.1a).
 
 ### Out of scope
 Anything conditional on the moment — that is templates (P7). P2 is standing context.
+
+Replacing RimTalk's chat-history entry belongs to P5, not here: the entry can only be usefully
+removed once there is something better to put in its place.
 
 ### Tasks
 - [x] Age voice, five bands, player-editable, empty-adult default
@@ -126,7 +130,18 @@ Anything conditional on the moment — that is templates (P7). P2 is standing co
 - [ ] **Prompt-entry registration in a `GameComponent`** — the second registration moment
       ([DESIGN.md](DESIGN.md) §3.2), and the first use of mechanism 3 from §2.1: a block we place
       ourselves, anywhere in the message list, filled per prompt
-- [ ] A shipped starter preset
+- [ ] **Advanced prompt mode detection.** `UseAdvancedPromptMode` is off by default, and in simple
+      mode RimTalk re-inserts its own built-in entries — so our *additions* survive but our
+      *removals* do not ([DESIGN.md](DESIGN.md) §2.1a). Detect it, say plainly which features need
+      it, offer to turn it on. Never flip another mod's setting silently, and never half-work
+      silently either.
+- [ ] **A shipped preset that displaces RimTalk's own content** — replace entry 1 (its voice),
+      remove or filter entry 3 (the context dump, named "Context" or "Pawn Profiles"), and leave
+      entry 2 alone: RimTalk parses that JSONL contract, and breaking it looks like the model
+      failing rather than like our bug.
+- [ ] `Override` hook on `Pawn:personality` to replace RimTalk's persona. Works in **both** modes,
+      since it is a hook rather than a preset change.
+- [ ] Panel view: our preset versus RimTalk's default, side by side, with which mode is active
 - [ ] Settings UI pass once the field count outgrows one scroll pane
 
 ### Exit criteria
@@ -226,6 +241,9 @@ that nothing reads yet.
 - [ ] Chained recall at a lower score bar than primary selection, depth and total capped
 - [ ] Inject via a prompt entry and a registered context variable — mechanism 3, so recall lands
       where we choose rather than beside whatever anchor is nearest
+- [ ] **Retire RimTalk's chat-history entry.** `{{chat.history}}` is a transcript, not a memory
+      ([DESIGN.md](DESIGN.md) §8) — disable entry 4 and put retrieval in its place. Needs advanced
+      prompt mode; P2 built the detection for it.
 - [ ] Panel view: for the last recall, what was chosen and the score breakdown that chose it
 
 > The score-breakdown view is not optional polish. Significance, relevance, decay and chain bar are

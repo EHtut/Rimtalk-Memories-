@@ -71,6 +71,64 @@ A setting that changes nothing the model sees is a lie in the options menu. The 
 panel is how that stays honest — if a setting cannot be traced to text in that panel, it is not
 finished.
 
+### 2.1a RimTalk as transport: how much of its content is ours?
+
+The goal is RimTalk for what it is good at — provider plumbing, response parsing, pawn selection,
+speech display — and *nothing* of what it decides to say. That turns out to be almost entirely
+achievable, because RimTalk's whole prompt is **five preset entries**:
+
+| # | Entry | Content | Ours? |
+|---|---|---|---|
+| 1 | Base Instruction | `Constant.DefaultInstruction` | **Yes** — replace it |
+| 2 | JSON Format | the JSONL output contract | **No — load-bearing** |
+| 3 | Context *(aka "Pawn Profiles")* | `{{context}}` | **Yes** — remove or filter |
+| 4 | Chat History | `{{chat.history}}` | **Yes** — this is the memory to replace |
+| 5 | Dialogue Prompt | `{{prompt}}` | Keep — it is the actual trigger |
+
+Entry 3 is the context dump. Entry 4 is RimTalk's "memory", which is nothing more than recent chat
+lines. Both are ordinary entries in a mutable `List<PromptEntry>`, and `PromptManager` exposes
+`CreateNewPreset`, `AddPreset`, `SetActivePreset` and `RemovePreset` publicly. **We can ship and
+activate our own preset.**
+
+Persona is separate and easier: `Pawn:personality` is a context category, so an `Override` hook
+replaces it without touching the preset at all.
+
+**Entry 2 must survive in substance.** RimTalk parses JSONL with `name` and `text` keys, plus
+optional `act`/`target`. Change that contract and response parsing breaks — which would look like
+the model failing rather than like our bug. Rewrite the wording if useful; keep the schema.
+
+#### The catch: advanced prompt mode
+
+`UseAdvancedPromptMode` defaults to **off**, and the two modes differ in a way that decides this
+whole approach:
+
+```csharp
+PromptPreset preset = rimTalkSettings.UseAdvancedPromptMode
+    ? promptPreset
+    : PromptPresetAssembler.BuildSimpleModePreset(promptPreset, ...);
+```
+
+- **Advanced mode** uses the active preset verbatim. Removing entry 3 or 4 works.
+- **Simple mode** rebuilds the preset: built-in entries are normalised and any that are missing are
+  **re-inserted**. Removing entry 3 or 4 does not stick.
+
+The saving grace is one branch in that rebuild: entries carrying a `SourceModId` are copied through
+untouched. **So our additions survive in both modes; only our removals need advanced mode.**
+
+That sets the design: additive features work for everyone; anything that displaces RimTalk's own
+content requires advanced mode. Detect it, explain it, offer to turn it on — do not silently flip
+another mod's setting, and do not silently half-work.
+
+#### One cost worth knowing
+
+`talkRequest.Context = PromptService.BuildContext(pawns, ...)` runs **unconditionally**, before the
+preset is assembled. Removing entry 3 stops the dump reaching the model but does not stop it being
+built, so the work is still paid for on the tick path every prompt.
+
+That is an argument for §13's approach — filter the context rather than discard it, and get value
+for the cost already incurred. If we ever do want it gone outright, short-circuiting `BuildContext`
+is a legitimate §10 Harmony entry.
+
 ### 2.2 Do we fork RimTalk?
 
 Considered seriously, and the answer is no — but the option is kept open, which is why the seam
@@ -218,6 +276,15 @@ does with its JSON events, and that format is worth reusing rather than inventin
 
 The namesake feature, and the one with real design in it.
 
+**What it replaces.** RimTalk's "memory" is one preset entry, `{{chat.history}}` — the last few
+things that were said, in order, with no notion of weight or relevance. That is a transcript, not a
+memory: it forgets a death the moment the conversation moves on, and it remembers what somebody had
+for lunch with exactly the same fidelity.
+
+So this is not an addition beside RimTalk's memory. It is a **replacement for entry 4** (§2.1a):
+disable the chat-history entry and substitute one filled by the retrieval below. That needs advanced
+prompt mode, for the reason §2.1a gives, and it is the clearest example of why that mode matters.
+
 ### 8.1 Two scores, computed at different times
 
 **Significance** — how much this mattered, *ever*. Assigned once, when the memory is written, and
@@ -286,6 +353,7 @@ Kept here, and only here, so the RimTalk-update blast radius is always countable
 | Conversation distance / who is selected | `PawnSelector` is internal; no API for pawn eligibility | [PILLARS.md](PILLARS.md) P3 |
 | Response-type display (whisper/shout/thought) | Speech bubble drawing is internal | P3 |
 | Monologue / conversation length caps | No API for response shaping | P3 |
+| Skipping RimTalk's context build entirely | `PromptService.BuildContext` runs unconditionally, so dropping the entry stops it being *sent* but not *built* (§2.1a) | Candidate only — §13 prefers filtering it |
 
 Every patch added must be listed here as it lands, with its reason. The context layer (P1, P2)
 requires none at all, which is the point of §2.

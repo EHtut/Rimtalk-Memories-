@@ -197,6 +197,56 @@ Useful beyond context injection — the memory and response-type work will need 
 `TalkType` being closed is why whisper/shout/thought have to be this mod's own concept rather than
 new enum members ([../DESIGN.md](../DESIGN.md) §9).
 
+## 6.2 The default preset is five entries, and two modes decide who owns them
+
+`CreateDefaultPreset()` (~18350) builds the entire RimTalk prompt from five entries:
+
+| # | Name | Role | Content |
+|---|---|---|---|
+| 1 | Base Instruction | System | `Constant.DefaultInstruction` |
+| 2 | JSON Format | System | the JSONL contract — `name`, `text`, optional `act`/`target` |
+| 3 | Context | System | `{{context}}` — the whole `ContextBuilder` dump |
+| 4 | Chat History | User | `{{chat.history}}`, flagged `IsMainChatHistory` |
+| 5 | Dialogue Prompt | User | `{{prompt}}` |
+
+`PromptPreset.Entries` is a public mutable `List<PromptEntry>`, and `PromptManager` exposes
+`CreateNewPreset`, `AddPreset`, `SetActivePreset` and `RemovePreset`. A mod can ship and activate
+its own preset.
+
+**Entry 2 is load-bearing.** RimTalk parses JSONL responses against that schema. Reword it if
+useful; do not change the contract.
+
+### `UseAdvancedPromptMode` — off by default
+
+```csharp
+PromptPreset preset = rimTalkSettings.UseAdvancedPromptMode
+    ? promptPreset
+    : PromptPresetAssembler.BuildSimpleModePreset(promptPreset, ...);
+```
+
+- **Advanced:** the active preset is used verbatim.
+- **Simple:** the preset is rebuilt — built-in entries are normalised and any missing ones are
+  **re-inserted**, so removals do not stick. Note that `BuildSimpleModePreset` matches entry 3 by
+  the name `"Context"` *or* `"Pawn Profiles"`, so that entry has been renamed across versions.
+
+One branch decides how much of this matters:
+
+```csharp
+else if (!string.IsNullOrEmpty(entry.SourceModId))
+{
+    promptPreset.Entries.Add(ShallowCopyEntry(entry));
+}
+```
+
+**Entries carrying a `SourceModId` are copied through untouched in simple mode.** So a mod's
+*additions* work in both modes; only *removals* of RimTalk's own entries need advanced mode.
+
+### Context is built whether or not it is used
+
+`talkRequest.Context = PromptService.BuildContext(pawns, ...)` runs unconditionally at ~18478,
+before preset assembly. Removing entry 3 stops the dump reaching the model but not being built, so
+the tick-path cost is still paid. See [../DESIGN.md](../DESIGN.md) §2.1a.
+
 ## 7.1 Borrowing the AI client for work that is not a conversation
 
 `RimTalk.Client.AIClientFactory.GetAIClientAsync()` is **public** and returns an `IAIClient` bound
