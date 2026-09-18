@@ -80,11 +80,12 @@ Any actual context content. P1 is the pipe, not what flows through it.
 - [x] Settings class and settings window
 - [x] Prefixed logging with warn-once on the provider path
 - [x] Conflict warning for superseded mods
-- [ ] **Injection profile panel in Mod Options** — RimTalk's native preset entries, our layer on
+- [x] **Injection profile panel in Mod Options** — RimTalk's native preset entries, our layer on
       top of them, and what it all costs. Reachable from the main menu; live data when a game is
       running. Includes provider hit counting in the seam.
-- [ ] **Per-anchor mode** — append, prepend or override, chosen per section and visible in the
-      panel. Override stops RimTalk's own age line being duplicated by ours.
+- [x] **Per-anchor mode** — injected before/after, folded into RimTalk's text, or replacing it.
+      A runtime setting, so one load can compare all four. Folding is the default for age and
+      gender, which stops RimTalk's own age line being duplicated by ours.
 - [ ] Decide who owns the total token budget ([DESIGN.md](DESIGN.md) §11)
 - [ ] **The one verification run** — load once, work the whole checklist in the spec
 

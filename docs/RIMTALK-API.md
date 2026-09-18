@@ -25,8 +25,41 @@ Four things it can do:
 
 Supporting types `ContextHookRegistry.HookOperation` (`Append`, `Prepend`, `Override`) and
 `ContextHookRegistry.InjectPosition` (`Before`, `After`) are **nested public** and usable from
-outside. `ContextCategory` also has a public constructor `(string key, ContextType type)`, so
-custom anchors are possible — though nothing in RimTalk would build them.
+outside. `ContextCategory` is a **struct** (`TryGetPawnCategory` returns `ContextCategory?`) with a
+public constructor `(string key, ContextType type)`, so custom anchors are possible — though
+nothing in RimTalk would build them.
+
+### 1.1 Hooks reach further than injections
+
+These are two different mechanisms with two different reaches, and the difference matters when
+choosing how to attach something.
+
+**Injections** add a new block near a category. They are consumed **only** in `AppendWithHook` and
+`ApplyEnvironmentWithHook` (~14793–14845), which is `ContextBuilder`'s prose-assembly path.
+
+**Hooks** transform the category's own value, and `ApplyPawnHooks` is called from **two** places:
+that same prose path (~14805), *and* Scriban variable resolution (~17250). So when a preset
+template references `{{pawn.age}}`, RimTalk computes the value and then runs hooks over it —
+whereas an injection at `Pawn:age` does not fire there at all.
+
+**A hook therefore rides along wherever RimTalk puts that category, including inside
+player-authored templates.** An injection only appears where `ContextBuilder` assembles prose. When
+in doubt, hook.
+
+### 1.2 Hook semantics — the names are misleading
+
+`ApplyPawnHooks` (~25202):
+
+- A **handler is `Func<Pawn, string, string>`**: it receives the running value and returns the
+  complete new value. `Append` and `Prepend` name **the order handlers run in**, not a string
+  operation — RimTalk does not concatenate anything for you. An "append" hook that wants the
+  original kept must return `original + something` itself.
+- **`Override` returns on the first non-null result** and skips prepend and append entirely. The
+  handler still receives the original value, so "override" can mean *replace with a function of
+  the original* rather than discarding it — usually what you actually want.
+- Order is: all Override (first non-null wins) → all Prepend → all Append.
+- Every handler is individually try/caught by RimTalk, which logs and moves on. That is a softer
+  net than the provider path, which has none — but do not rely on it.
 
 ## 2. Anchors
 

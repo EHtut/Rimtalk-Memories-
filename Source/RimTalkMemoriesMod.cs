@@ -1,5 +1,6 @@
 using RimTalkMemories.Context;
 using RimTalkMemories.Settings;
+using RimTalkMemories.UI;
 using UnityEngine;
 using Verse;
 
@@ -39,6 +40,20 @@ namespace RimTalkMemories
                 "Enable RimTalk Memories",
                 ref Settings.Enabled,
                 "Turns off every context injection without unloading the mod.");
+            listing.Gap(6f);
+
+            // Works from the main menu: this mod's settings and RimTalk's prompt system both load
+            // at startup, so the whole static picture is reviewable without opening a colony.
+            var buttonRect = listing.GetRect(34f);
+            buttonRect.width = Mathf.Min(340f, buttonRect.width);
+            if (Widgets.ButtonText(buttonRect, "Open injection profile…"))
+            {
+                Find.WindowStack.Add(new InjectionProfileWindow());
+            }
+            TooltipHandler.TipRegion(buttonRect,
+                "Shows exactly what this mod adds to RimTalk's prompts, and what RimTalk was "
+                + "already sending. Works here at the main menu — no colony needed.");
+
             listing.GapLine();
 
             // --- Age --------------------------------------------------------------------

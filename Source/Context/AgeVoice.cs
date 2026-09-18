@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using RimTalkMemories.Integration;
 using RimTalkMemories.Settings;
 using Verse;
 
@@ -111,6 +114,45 @@ namespace RimTalkMemories.Context
         {
             var band = BandFor(pawn);
             return band == null ? "" : band.Value.ToString().ToLowerInvariant();
+        }
+
+        /// <summary>Where each band starts and stops, for the profile panel.</summary>
+        public static string RangeLabel(AgeBand band)
+        {
+            switch (band)
+            {
+                case AgeBand.Baby: return "under 3";
+                case AgeBand.Child: return "3–12";
+                case AgeBand.Teenager: return "13–17";
+                case AgeBand.Adult: return "18–59";
+                case AgeBand.Elder: return "60+";
+                default: return "";
+            }
+        }
+
+        /// <summary>
+        /// Exactly what every band would emit, with no pawn needed.
+        ///
+        /// This is the answer to "what will a child actually get", available from the main menu
+        /// instead of requiring a loaded colony that happens to contain a child.
+        /// </summary>
+        public static List<VariantSample> Variants()
+        {
+            var samples = new List<VariantSample>();
+            var settings = RimTalkMemoriesMod.Settings;
+            if (settings == null) return samples;
+
+            foreach (AgeBand band in Enum.GetValues(typeof(AgeBand)))
+            {
+                string guidance = GuidanceFor(settings, band);
+                string emitted = string.IsNullOrEmpty(guidance)
+                    ? "(adds nothing)"
+                    : "Speech for their age: " + guidance;
+
+                samples.Add(new VariantSample(band + " (" + RangeLabel(band) + ")", emitted));
+            }
+
+            return samples;
         }
     }
 }

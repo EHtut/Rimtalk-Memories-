@@ -18,7 +18,7 @@ Last updated: **2026-09-17**
 
 | Pillar | State | Notes |
 |---|---|---|
-| P1 Foundation | **in progress** | Code written; nothing verified in game. 3 tasks left. |
+| P1 Foundation | **in progress** | Seam, panel and per-anchor mode written. Token budget undecided; verification run outstanding. |
 | P2 Voice and lore | **in progress** | Age, gender, world lore written. Colony lore, per-save override, prompt entries and starter preset not started. |
 | P3 Earshot and delivery | not started | First pillar that needs Harmony. |
 | P4 Memory core | not started | Wants P3's earshot model for witness detection. |
@@ -28,31 +28,33 @@ Last updated: **2026-09-17**
 
 ## The honest state of P1 and P2
 
-Everything marked written compiles against the real RimTalk assembly. That proves the API calls
-are type-correct and **nothing else**. No line of this mod has run.
+Everything written compiles against the real RimTalk assembly, and decompiling our own output
+confirms all four attachment modes reach the intended RimTalk entry points
+(`InjectPawnSection`, `InjectEnvironmentSection`, `RegisterPawnHook`, `RegisterEnvironmentHook`)
+at the intended anchors. That is as far as static checking goes. **No line of this mod has run.**
 
-Three specific unknowns, in the order they would hurt:
+Two unknowns remain, and only a running game can settle them:
 
-1. **Do the anchors fire?** Sections are injected at `Pawn:age`, `Pawn:gender` and
-   `Environment:time`. Only some pawn categories are demonstrably wired through RimTalk's hook
-   path ([docs/RIMTALK-API.md](docs/RIMTALK-API.md) §2). A section at a category RimTalk never
-   reaches is silently dead — no error, no text, no clue.
-2. **Does the text land where intended?** Before/after ordering at an anchor is understood from
-   the decompilation, not observed.
-3. **Does the conflict warning fire?** Four superseded mods are installed on this machine, so it
-   should be immediate and loud.
+1. **Do the anchors fire?** We attach at `Pawn:age`, `Pawn:gender` and `Environment:time`. Only
+   some categories are demonstrably wired through RimTalk's paths
+   ([docs/RIMTALK-API.md](docs/RIMTALK-API.md) §2). A section at a category RimTalk never reaches
+   is silently dead — no error, no text, no clue. The panel's Live tab exists to answer exactly
+   this, and distinguishes "never called" from "called but returned nothing".
+2. **Does the folded text read well?** Age now folds into RimTalk's own age value rather than
+   sitting beside it. Whether `34 — speaks from long experience…` reads naturally in place,
+   especially inside a template, is a judgement that needs to be seen. If it reads badly, the
+   mode is a setting — switch it in the panel without rebuilding.
 
 ## Next action
 
-P1 task 1.1 — **the injection profile panel in Mod Options**, plus provider hit counting in
-`RimTalkApi.Guarded`.
+Two things, in either order:
 
-It comes first because RimWorld costs ~20 minutes to load, so there is one verification run per
-pillar and the instrument has to exist before it. The panel is reachable from the main menu —
-RimTalk's prompt presets live in its mod settings, not its save data — so most of P1 can be
-checked without loading anything.
-
-Full method in [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md).
+- **Decide who owns the token budget** (P1's last build task) — a decision, not construction, and
+  it changes a provider signature, so it is much cheaper now than after P2–P5.
+  [docs/specs/P1-foundation.md](docs/specs/P1-foundation.md) §1.3 has the options and a
+  recommendation.
+- **The one verification run** — checklist in the same spec, §1.4. Open the panel from the main
+  menu first and correct the wording there; only then load a colony.
 
 ## Known gaps
 

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using RimTalkMemories.Integration;
 using Verse;
 
 namespace RimTalkMemories.Context
@@ -31,6 +33,25 @@ namespace RimTalkMemories.Context
             if (string.IsNullOrEmpty(guidance)) return "";
 
             return "Speech for their gender: " + guidance;
+        }
+
+        /// <summary>Both texts, for the profile panel. Empty by design until the player writes them.</summary>
+        public static List<VariantSample> Variants()
+        {
+            var samples = new List<VariantSample>();
+            var settings = RimTalkMemoriesMod.Settings;
+            if (settings == null) return samples;
+
+            samples.Add(Sample("Male", settings.MaleVoice));
+            samples.Add(Sample("Female", settings.FemaleVoice));
+            return samples;
+        }
+
+        private static VariantSample Sample(string label, string guidance)
+        {
+            return new VariantSample(label, string.IsNullOrEmpty(guidance)
+                ? "(adds nothing — not written yet)"
+                : "Speech for their gender: " + guidance);
         }
     }
 }

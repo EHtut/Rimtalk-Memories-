@@ -38,7 +38,30 @@ resort, each use is justified in §10, and each one is isolated behind
 
 The single seam is `Source/Integration/RimTalkApi.cs`. Feature code never calls RimTalk directly.
 
-## 3. Two registration moments
+## 3. Lifecycle: where state lives, and when we register
+
+### 3.1 Settings live in mod settings, never in the save
+
+**Every player-facing setting this mod owns is a `ModSettings` field**, saved to RimWorld's config
+folder — not scribed into the save game. `MemoriesSettings` is the one place they live.
+
+Three consequences, and the third is the one that pays:
+
+1. **They carry across colonies.** Authored text — age voices, world lore, prompt wording — is
+   work the player did once. Tying it to a save would mean redoing it every new colony.
+2. **They are not colony history.** Anything that describes a *particular* colony's past belongs
+   in the save instead, via a `GameComponent`. Memories (§8) are the obvious case. The line is:
+   authored by the player → settings; produced by play → save.
+3. **They are readable at the main menu.** RimWorld loads mod settings at startup, long before any
+   save. So is RimTalk's — `PromptManager.SetInstance` is called from `RimTalkSettings.ExposeData`,
+   which means RimTalk's active preset and its templates are available there too.
+
+That third point is what makes the injection profile panel work without loading a save, and with a
+~20 minute load time that is the difference between a usable tool and a useless one. It is a
+constraint on future features as much as a convenience: **if a thing can be inspected from settings
+alone, it should be.**
+
+### 3.2 Two registration moments
 
 There are two different times this mod can register things, and mixing them up is the most
 likely way to get a silent failure.
@@ -76,9 +99,20 @@ RimTalk already puts a pawn's age and gender in the prompt. A number alone does 
 "age 6", a model still writes a six-year-old who argues like a lawyer. What changes the output is
 an instruction about **register** — sentence length, what they grasp, what they care about.
 
-So this injects a line immediately after the age RimTalk already wrote, anchored at
-`ContextCategories.Pawn.Age`. Five bands: baby, child, teenager, adult, elder, cut on
-**biological** years so a pawn out of cryptosleep sounds like the body doing the talking.
+So this attaches guidance at `ContextCategories.Pawn.Age`. Five bands: baby, child, teenager,
+adult, elder, cut on **biological** years so a pawn out of cryptosleep sounds like the body doing
+the talking.
+
+**It folds into RimTalk's own age value rather than sitting beside it** (`HookAppend`). Adding a
+separate block would state the age twice — once as RimTalk's bare fact, once as ours. Folding also
+reaches player-authored templates that reference `{{pawn.age}}`, which an injection never does
+(docs/RIMTALK-API.md §1.1).
+
+The attachment mode is a per-section **setting**, not a compile-time choice: injected before or
+after, folded in, or replacing RimTalk's text outright. That is a concession to a twenty-minute
+load — one session can compare all four instead of one. Replacing is the one to be careful with,
+because it means owning that text forever and silently losing RimTalk's improvements to it. The
+injection profile panel shows each section's current mode so the choice is never invisible.
 
 Adults get an empty string by default, and empty sections are skipped entirely. An ordinary adult
 is the model's default register already, so spending tokens to say so would be waste on every
@@ -100,6 +134,11 @@ granted here.
 This is **environment** context, not pawn context — it is true of the place, not the person.
 That also means RimTalk builds it once per prompt rather than once per participant: for a
 four-pawn conversation, the difference between paying for the lore once and paying four times.
+
+Unlike age and gender it is a block in its own right rather than a modification of an existing
+value, so it injects (before `Environment:time`) rather than folding. It also registers as
+`{{worldlore}}`, so a player who wants it somewhere specific can place it by hand instead of
+accepting where the anchor happens to sit.
 
 It is character-capped and trimmed at a word boundary, because this text rides on every prompt
 the colony generates.

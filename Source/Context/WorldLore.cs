@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using RimTalkMemories.Integration;
 using Verse;
 
 namespace RimTalkMemories.Context
@@ -13,7 +15,18 @@ namespace RimTalkMemories.Context
     /// </summary>
     public static class WorldLore
     {
-        public static string Describe(Map map)
+        /// <summary>
+        /// The map argument is unused: lore is the same everywhere, which is exactly why this is
+        /// environment context in the first place. Kept in the signature because that is the shape
+        /// RimTalk hands us.
+        /// </summary>
+        public static string Describe(Map map) => Text();
+
+        /// <summary>
+        /// The lore block as it would be emitted. Needs no map, so the profile panel can show it
+        /// from the main menu.
+        /// </summary>
+        public static string Text()
         {
             var settings = RimTalkMemoriesMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableWorldLore) return "";
@@ -25,6 +38,18 @@ namespace RimTalkMemories.Context
             if (lore.Length == 0) return "";
 
             return "What everyone here knows about the world:\n" + Clamp(lore, settings.WorldLoreMaxChars);
+        }
+
+        /// <summary>The one text this section emits, for the profile panel.</summary>
+        public static List<VariantSample> Variants()
+        {
+            string text = Text();
+            return new List<VariantSample>
+            {
+                new VariantSample("All pawns", string.IsNullOrEmpty(text)
+                    ? "(adds nothing — no lore written, or the feature is off)"
+                    : text)
+            };
         }
 
         /// <summary>

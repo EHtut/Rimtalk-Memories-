@@ -6,54 +6,100 @@ using Verse;
 namespace RimTalkMemories.Context
 {
     /// <summary>
-    /// Wires this mod's context providers into RimTalk, once, at startup.
+    /// Declares this mod's context sections and pushes them into RimTalk at startup.
     ///
-    /// Sections, hooks and variables all land in static registries, so they can be registered
-    /// here without a game loaded. Prompt *entries* are different — those edit the active
-    /// preset, which does not exist until a save is open — and so they do not belong in this
-    /// class. See docs/DESIGN.md, "Two registration moments".
+    /// Sections, hooks and variables all land in static registries, so they can be registered here
+    /// without a game loaded. Prompt *entries* are different — those edit the active preset, which
+    /// does not exist until a save is open — and so they do not belong in this class.
+    /// See docs/DESIGN.md §3.2.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class ContextRegistrar
     {
-        static ContextRegistrar()
+        public const string AgeSection = "AgeVoice";
+        public const string GenderSection = "GenderVoice";
+        public const string WorldLoreSection = "WorldLore";
+
+        /// <summary>
+        /// Age and gender fold into RimTalk's own value for their category rather than appearing
+        /// beside it. RimTalk already writes the pawn's age; appending a separate block would say
+        /// the age twice. Folding also reaches player-authored templates that use {{pawn.age}},
+        /// which an injection never does — see docs/RIMTALK-API.md §1.1.
+        ///
+        /// World lore is a block in its own right rather than a modification of the time, so it
+        /// injects. It also registers as {{worldlore}} for template authors who want to place it.
+        /// </summary>
+        public static InjectionMode DefaultModeFor(string sectionName)
         {
-            Register();
-            CompanionConflicts.WarnIfAnyActive();
+            switch (sectionName)
+            {
+                case AgeSection: return InjectionMode.HookAppend;
+                case GenderSection: return InjectionMode.HookAppend;
+                case WorldLoreSection: return InjectionMode.InjectBefore;
+                default: return InjectionMode.InjectAfter;
+            }
         }
 
-        private static void Register()
+        static ContextRegistrar()
         {
-            // Registering twice would inject every section twice, and a static constructor is
-            // not a promise that this only ever runs once. Clearing first makes it idempotent.
-            RimTalkApi.UnregisterAll();
+            DeclareAll();
+            RimTalkApi.ApplyAll();
+            CompanionConflicts.WarnIfAnyActive();
+            RTMLog.Message("registered " + RimTalkApi.Registrations.Count + " context sections.");
+        }
 
-            RimTalkApi.InjectPawnSection(
-                "AgeVoice",
-                ContextCategories.Pawn.Age,
-                ContextHookRegistry.InjectPosition.After,
-                AgeVoice.Describe);
+        private static void DeclareAll()
+        {
+            var settings = RimTalkMemoriesMod.Settings;
 
-            RimTalkApi.InjectPawnSection(
-                "GenderVoice",
-                ContextCategories.Pawn.Gender,
-                ContextHookRegistry.InjectPosition.After,
-                GenderVoice.Describe);
+            RimTalkApi.Declare(new InjectionDeclaration
+            {
+                SectionName = AgeSection,
+                Anchor = ContextCategories.Pawn.Age,
+                Mode = ModeFrom(settings, AgeSection),
+                PawnProvider = AgeVoice.Describe,
+                Variants = AgeVoice.Variants,
+                Note = "How someone this old speaks. Adults add nothing by default — they are the "
+                       + "model's default register already, so saying so would cost tokens on every prompt."
+            });
 
-            // Before the first environment line, so the setting frames everything that
-            // follows it rather than arriving as a footnote after the weather report.
-            RimTalkApi.InjectEnvironmentSection(
-                "WorldLore",
-                ContextCategories.Environment.Time,
-                ContextHookRegistry.InjectPosition.Before,
-                WorldLore.Describe);
+            RimTalkApi.Declare(new InjectionDeclaration
+            {
+                SectionName = GenderSection,
+                Anchor = ContextCategories.Pawn.Gender,
+                Mode = ModeFrom(settings, GenderSection),
+                PawnProvider = GenderVoice.Describe,
+                Variants = GenderVoice.Variants,
+                Note = "Off by default with both texts empty. RimTalk already states each pawn's "
+                       + "gender; this is only for colonies that want men and women to sound different."
+            });
+
+            RimTalkApi.Declare(new InjectionDeclaration
+            {
+                SectionName = WorldLoreSection,
+                Anchor = ContextCategories.Environment.Time,
+                Mode = ModeFrom(settings, WorldLoreSection),
+                MapProvider = WorldLore.Describe,
+                Variants = WorldLore.Variants,
+                Note = "Built once per prompt rather than once per participant, because it is true "
+                       + "of the place and not the person."
+            });
 
             RimTalkApi.RegisterPawnVariable(
                 "ageband",
                 AgeVoice.BandLabel,
                 "baby, child, teenager, adult or elder — empty for non-humanlike pawns");
 
-            RTMLog.Message("context providers registered.");
+            RimTalkApi.RegisterEnvironmentVariable(
+                "worldlore",
+                WorldLore.Describe,
+                "the shared world lore block, for placing by hand in a prompt preset");
+        }
+
+        private static InjectionMode ModeFrom(Settings.MemoriesSettings settings, string sectionName)
+        {
+            var fallback = DefaultModeFor(sectionName);
+            return settings == null ? fallback : settings.ModeFor(sectionName, fallback);
         }
     }
 }
