@@ -1,3 +1,4 @@
+using RimTalkMemories.Budget;
 using RimTalkMemories.Context;
 using RimTalkMemories.Settings;
 using RimTalkMemories.UI;
@@ -27,6 +28,17 @@ namespace RimTalkMemories
         }
 
         public override string SettingsCategory() => "RimTalk Memories";
+
+        /// <summary>
+        /// Settings changes can move the budget — a longer lore cap, a different conversation
+        /// size — so the allocation has to be recomputed. Doing it here rather than on every read
+        /// keeps the cost off the tick path, where the providers run.
+        /// </summary>
+        public override void WriteSettings()
+        {
+            base.WriteSettings();
+            PromptBudget.Invalidate();
+        }
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
@@ -109,6 +121,26 @@ namespace RimTalkMemories
                 listing.Label($"Character limit: {Settings.WorldLoreMaxChars}   (using {used})");
                 Settings.WorldLoreMaxChars = (int)listing.Slider(Settings.WorldLoreMaxChars, 200f, 4000f);
             }
+            listing.GapLine();
+
+            // --- Budget -----------------------------------------------------------------
+            Header(listing, "Prompt budget");
+            listing.Label("Every feature here adds text to the prompt. This is the ceiling on all "
+                          + "of it together — when it runs short, background text gives way before "
+                          + "anything specific to the moment does.");
+
+            listing.Label($"Characters this mod may add per prompt: <b>{Settings.TotalBudgetChars}</b>"
+                          + $"   (~{Mathf.CeilToInt(Settings.TotalBudgetChars / 4f)} tokens in English)");
+            Settings.TotalBudgetChars = (int)listing.Slider(Settings.TotalBudgetChars, 200f, 8000f);
+
+            listing.Label($"Assumed conversation size: <b>{Settings.AssumedParticipants}</b> pawns");
+            Settings.AssumedParticipants = (int)listing.Slider(Settings.AssumedParticipants, 1f, 8f);
+            listing.Label("<i>Age and gender text is built once per speaker, so conversation size "
+                          + "decides what they really cost. World lore is built once either way.</i>");
+
+            listing.Label($"<i>Currently allocated: {PromptBudget.Committed()} of "
+                          + $"{Settings.TotalBudgetChars} characters. Open the injection profile for "
+                          + "the breakdown.</i>");
 
             _contentHeight = listing.CurHeight + 40f;
             listing.End();

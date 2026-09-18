@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using RimTalkMemories.Integration;
+using RimTalkMemories.Util;
 using Verse;
 
 namespace RimTalkMemories.Context
@@ -16,7 +17,9 @@ namespace RimTalkMemories.Context
     /// </summary>
     public static class GenderVoice
     {
-        public static string Describe(Pawn pawn)
+        public const string Prefix = "Speech for their gender: ";
+
+        public static string Describe(Pawn pawn, int budget)
         {
             var settings = RimTalkMemoriesMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableGenderVoice) return "";
@@ -32,7 +35,7 @@ namespace RimTalkMemories.Context
 
             if (string.IsNullOrEmpty(guidance)) return "";
 
-            return "Speech for their gender: " + guidance;
+            return TextUtil.Clamp(Prefix + guidance, budget);
         }
 
         /// <summary>Both texts, for the profile panel. Empty by design until the player writes them.</summary>
@@ -49,9 +52,11 @@ namespace RimTalkMemories.Context
 
         private static VariantSample Sample(string label, string guidance)
         {
-            return new VariantSample(label, string.IsNullOrEmpty(guidance)
-                ? "(adds nothing — not written yet)"
-                : "Speech for their gender: " + guidance);
+            bool silent = string.IsNullOrEmpty(guidance);
+            return new VariantSample(
+                label,
+                silent ? "(adds nothing — not written yet)" : Prefix + guidance,
+                silent);
         }
     }
 }

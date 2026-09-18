@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using RimTalkMemories.Integration;
 using RimTalkMemories.Settings;
+using RimTalkMemories.Util;
 using Verse;
 
 namespace RimTalkMemories.Context
@@ -95,7 +96,7 @@ namespace RimTalkMemories.Context
         /// right outcome for an ordinary adult: they are the model's default register already,
         /// so spending tokens to say so would be waste on every prompt in the colony.
         /// </summary>
-        public static string Describe(Pawn pawn)
+        public static string Describe(Pawn pawn, int budget)
         {
             var settings = RimTalkMemoriesMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableAgeVoice) return "";
@@ -106,8 +107,12 @@ namespace RimTalkMemories.Context
             string guidance = GuidanceFor(settings, band.Value);
             if (string.IsNullOrEmpty(guidance)) return "";
 
-            return "Speech for their age: " + guidance;
+            // The label counts toward the allowance too — it is characters in the prompt like any
+            // other. A zero allowance means the budget squeezed this section out entirely.
+            return TextUtil.Clamp(Prefix + guidance, budget);
         }
+
+        private const string Prefix = "Speech for their age: ";
 
         /// <summary>Exposed as a template variable so players can place it themselves.</summary>
         public static string BandLabel(Pawn pawn)
@@ -145,11 +150,12 @@ namespace RimTalkMemories.Context
             foreach (AgeBand band in Enum.GetValues(typeof(AgeBand)))
             {
                 string guidance = GuidanceFor(settings, band);
-                string emitted = string.IsNullOrEmpty(guidance)
-                    ? "(adds nothing)"
-                    : "Speech for their age: " + guidance;
+                bool silent = string.IsNullOrEmpty(guidance);
 
-                samples.Add(new VariantSample(band + " (" + RangeLabel(band) + ")", emitted));
+                samples.Add(new VariantSample(
+                    band + " (" + RangeLabel(band) + ")",
+                    silent ? "(adds nothing)" : Prefix + guidance,
+                    silent));
             }
 
             return samples;

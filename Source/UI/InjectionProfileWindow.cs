@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using RimTalkMemories.Budget;
 using RimTalkMemories.Context;
 using RimTalkMemories.Integration;
+using RimTalkMemories.Util;
 using UnityEngine;
 using Verse;
 
@@ -156,10 +158,38 @@ namespace RimTalkMemories.UI
                 Note(listing, d.Note);
             }
 
+            int allowance = PromptBudget.For(d.SectionName);
+
+            // Nothing allocated has two very different causes, and conflating them would send
+            // someone hunting a budget problem that does not exist.
+            if (allowance <= 0)
+            {
+                if (d.SafeDesired() <= 0)
+                {
+                    Note(listing, "Nothing to send — this section has no text written, so it asks "
+                                  + "for no budget and emits nothing. Not a problem.");
+                }
+                else
+                {
+                    Note(listing, "The budget squeezed this section out entirely — it will emit "
+                                  + "nothing. Raise the total, or lower what something earlier in "
+                                  + "the order wants.");
+                }
+                return;
+            }
+
+            // Show what will really be emitted, not the untrimmed authored text. The whole point
+            // of this panel is that it does not lie about what reaches the prompt.
             foreach (var variant in d.SafeVariants())
             {
-                var text = "      <b>" + variant.Label + "</b>  (" + variant.Text.Length + " chars)\n      "
-                           + variant.Text.Replace("\n", "\n      ");
+                string emitted = TextUtil.Clamp(variant.Text, allowance);
+                bool trimmed = emitted.Length < variant.Text.Length;
+
+                string header = "      <b>" + variant.Label + "</b>  (" + emitted.Length + " chars"
+                                + (trimmed ? ", <color=#FFCC66>trimmed from " + variant.Text.Length + " by budget</color>" : "")
+                                + ")";
+
+                var text = header + "\n      " + emitted.Replace("\n", "\n      ");
 
                 float height = Text.CalcHeight(text, listing.ColumnWidth);
                 Widgets.Label(listing.GetRect(height), text);
@@ -242,21 +272,30 @@ namespace RimTalkMemories.UI
 
         private static void DrawCost(Listing_Standard listing)
         {
-            Header(listing, "4. What it costs");
+            Header(listing, "4. The character budget");
 
-            int worst = 0;
-            foreach (var declaration in RimTalkApi.Registrations)
+            listing.Label("Ceiling: <b>" + PromptBudget.TotalChars + " characters</b> per prompt"
+                          + "   (~" + Mathf.CeilToInt(PromptBudget.TotalChars / 4f) + " tokens in English)"
+                          + ", assuming " + PromptBudget.Participants + "-pawn conversations.");
+
+            listing.Gap(4f);
+
+            foreach (var row in PromptBudget.Table())
             {
-                int largest = 0;
-                foreach (var variant in declaration.SafeVariants())
-                {
-                    if (variant.Text.Length > largest) largest = variant.Text.Length;
-                }
-                worst += largest;
+                string cost = row.Squeezed
+                    ? "<color=#FFCC66>" + row.Allowance + " chars — wanted " + row.Desired + "</color>"
+                    : row.Allowance + " chars";
+
+                listing.Label("   • <b>" + row.Section + "</b>: " + cost);
             }
 
-            listing.Label("Worst case added per prompt: <b>" + worst + " characters</b>"
-                          + "   (~" + Mathf.CeilToInt(worst / 4f) + " tokens for English)");
+            listing.Gap(4f);
+            listing.Label("Allocated: <b>" + PromptBudget.Committed() + "</b> of "
+                          + PromptBudget.TotalChars + " characters.");
+
+            Note(listing, "Served in priority order, most important first: what a pawn remembers, "
+                          + "then how they speak, then what everyone knows. So a tight budget eats "
+                          + "the background before it touches anything specific to the moment.");
 
             Note(listing, "Characters, not tokens — real tokenisation is not affordable on the tick "
                           + "path. Roughly 4 characters per token in English; Chinese, Japanese and "

@@ -39,10 +39,20 @@ namespace RimTalkMemories.Integration
         public string Label;
         public string Text;
 
-        public VariantSample(string label, string text)
+        /// <summary>
+        /// True when <see cref="Text"/> is an explanation of why nothing is emitted rather than
+        /// something that will actually reach a prompt.
+        ///
+        /// It matters to the budget, not just the display: measuring a placeholder would make an
+        /// unconfigured section reserve characters for text it is never going to send.
+        /// </summary>
+        public bool IsPlaceholder;
+
+        public VariantSample(string label, string text, bool isPlaceholder = false)
         {
             Label = label;
             Text = text;
+            IsPlaceholder = isPlaceholder;
         }
     }
 
@@ -60,11 +70,37 @@ namespace RimTalkMemories.Integration
         public string SectionName;
         public ContextCategory Anchor;
         public InjectionMode Mode;
+
+        /// <summary>Ordering among several mods attaching to the same anchor. Passed to RimTalk.</summary>
         public int Priority = 100;
 
-        /// <summary>Exactly one of these two is set.</summary>
-        public Func<Pawn, string> PawnProvider;
-        public Func<Map, string> MapProvider;
+        /// <summary>
+        /// Order of service when the character budget is divided up — **lower is served first**,
+        /// and has nothing to do with <see cref="Priority"/> above, which is RimTalk's ordering at
+        /// an anchor. Two different questions that would be confusing to answer with one number.
+        /// </summary>
+        public int BudgetPriority = 50;
+
+        /// <summary>
+        /// True when RimTalk builds this once per participant rather than once per prompt. Pawn
+        /// sections are; environment sections are not. It triples the real cost of a pawn section
+        /// in a three-way conversation, so the budget has to know.
+        /// </summary>
+        public bool PerParticipant;
+
+        /// <summary>
+        /// Characters this section would like. Defaults to the longest text it could emit, which
+        /// is the honest answer for a section whose output is bounded by authored text.
+        /// </summary>
+        public Func<int> DesiredChars;
+
+        /// <summary>
+        /// Exactly one of these two is set. The int is the section's character allowance for this
+        /// call; a provider must clamp itself to it. Zero is legitimate and means "say nothing" —
+        /// the budget squeezed this section out.
+        /// </summary>
+        public Func<Pawn, int, string> PawnProvider;
+        public Func<Map, int, string> MapProvider;
 
         /// <summary>
         /// Every text this section could emit, enumerable with no pawn and no map.
@@ -114,6 +150,33 @@ namespace RimTalkMemories.Integration
             {
                 return new List<VariantSample>();
             }
+        }
+
+        /// <summary>
+        /// What this section wants, in characters. Falls back to the longest variant it could
+        /// emit, so a section that never declares a size still budgets honestly.
+        /// </summary>
+        public int SafeDesired()
+        {
+            if (DesiredChars != null)
+            {
+                try
+                {
+                    return Math.Max(0, DesiredChars());
+                }
+                catch
+                {
+                    // Fall through to the variant measurement below.
+                }
+            }
+
+            int longest = 0;
+            foreach (var variant in SafeVariants())
+            {
+                if (variant.IsPlaceholder) continue;
+                if (variant.Text != null && variant.Text.Length > longest) longest = variant.Text.Length;
+            }
+            return longest;
         }
     }
 }

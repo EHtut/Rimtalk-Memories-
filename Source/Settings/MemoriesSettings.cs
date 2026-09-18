@@ -60,6 +60,27 @@ namespace RimTalkMemories.Settings
         /// <summary>Guard rail against pasting a novel into a field that bills per token.</summary>
         public int WorldLoreMaxChars = 1200;
 
+        // --- Budget -----------------------------------------------------------------------
+
+        /// <summary>
+        /// Total characters this mod may add to a single prompt, across every feature.
+        ///
+        /// Characters rather than tokens because real tokenisation is not affordable on the tick
+        /// path and varies by provider. Roughly four characters per token in English; Chinese,
+        /// Japanese and Korean run far denser, so a player using those should set this lower than
+        /// the English figure would suggest. Calling it a character budget and letting the player
+        /// choose is the honest option.
+        /// </summary>
+        public int TotalBudgetChars = 2000;
+
+        /// <summary>
+        /// How many pawns a typical conversation is assumed to involve.
+        ///
+        /// Pawn sections are built once per participant, environment sections once per prompt, so
+        /// without this the budget would badly under-count a four-way conversation.
+        /// </summary>
+        public int AssumedParticipants = 3;
+
         // --- Delivery ---------------------------------------------------------------------
 
         /// <summary>
@@ -103,6 +124,9 @@ namespace RimTalkMemories.Settings
             Scribe_Values.Look(ref EnableWorldLore, "enableWorldLore", true);
             Scribe_Values.Look(ref WorldLore, "worldLore", "");
             Scribe_Values.Look(ref WorldLoreMaxChars, "worldLoreMaxChars", 1200);
+
+            Scribe_Values.Look(ref TotalBudgetChars, "totalBudgetChars", 2000);
+            Scribe_Values.Look(ref AssumedParticipants, "assumedParticipants", 3);
 
             Scribe_Collections.Look(ref SectionModes, "sectionModes", LookMode.Value, LookMode.Value);
 

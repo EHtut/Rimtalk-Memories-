@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using RimTalk.API;
+using RimTalkMemories.Budget;
 using RimTalkMemories.Util;
 using Verse;
 
@@ -55,6 +56,9 @@ namespace RimTalkMemories.Integration
         public static void ApplyAll()
         {
             UnregisterAll();
+
+            // Declarations may have changed size or priority; the allocation is no longer valid.
+            PromptBudget.Invalidate();
 
             foreach (var declaration in Declarations)
             {
@@ -218,7 +222,10 @@ namespace RimTalkMemories.Integration
                 d.Calls++;
                 try
                 {
-                    string text = d.PawnProvider(pawn) ?? "";
+                    // The allowance is a dictionary lookup behind a dirty flag — cheap enough for
+                    // the tick path, and it means a settings change takes effect immediately
+                    // rather than at the next registration.
+                    string text = d.PawnProvider(pawn, PromptBudget.For(d.SectionName)) ?? "";
                     Record(d, text);
                     return text;
                 }
@@ -237,7 +244,7 @@ namespace RimTalkMemories.Integration
                 d.Calls++;
                 try
                 {
-                    string text = d.MapProvider(map) ?? "";
+                    string text = d.MapProvider(map, PromptBudget.For(d.SectionName)) ?? "";
                     Record(d, text);
                     return text;
                 }

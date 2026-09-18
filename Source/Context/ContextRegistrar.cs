@@ -1,4 +1,5 @@
 using RimTalk.API;
+using RimTalkMemories.Budget;
 using RimTalkMemories.Integration;
 using RimTalkMemories.Util;
 using Verse;
@@ -57,6 +58,8 @@ namespace RimTalkMemories.Context
                 SectionName = AgeSection,
                 Anchor = ContextCategories.Pawn.Age,
                 Mode = ModeFrom(settings, AgeSection),
+                BudgetPriority = BudgetOrder.AgeVoice,
+                PerParticipant = true,
                 PawnProvider = AgeVoice.Describe,
                 Variants = AgeVoice.Variants,
                 Note = "How someone this old speaks. Adults add nothing by default — they are the "
@@ -68,6 +71,8 @@ namespace RimTalkMemories.Context
                 SectionName = GenderSection,
                 Anchor = ContextCategories.Pawn.Gender,
                 Mode = ModeFrom(settings, GenderSection),
+                BudgetPriority = BudgetOrder.GenderVoice,
+                PerParticipant = true,
                 PawnProvider = GenderVoice.Describe,
                 Variants = GenderVoice.Variants,
                 Note = "Off by default with both texts empty. RimTalk already states each pawn's "
@@ -79,10 +84,14 @@ namespace RimTalkMemories.Context
                 SectionName = WorldLoreSection,
                 Anchor = ContextCategories.Environment.Time,
                 Mode = ModeFrom(settings, WorldLoreSection),
+                BudgetPriority = BudgetOrder.WorldLore,
+                PerParticipant = false,
+                DesiredChars = () => RimTalkMemoriesMod.Settings?.WorldLoreMaxChars ?? 1200,
                 MapProvider = WorldLore.Describe,
                 Variants = WorldLore.Variants,
                 Note = "Built once per prompt rather than once per participant, because it is true "
-                       + "of the place and not the person."
+                       + "of the place and not the person. Squeezed first when the budget is tight: "
+                       + "it is the largest and the least specific to the moment."
             });
 
             RimTalkApi.RegisterPawnVariable(
@@ -92,7 +101,7 @@ namespace RimTalkMemories.Context
 
             RimTalkApi.RegisterEnvironmentVariable(
                 "worldlore",
-                WorldLore.Describe,
+                WorldLore.VariableText,
                 "the shared world lore block, for placing by hand in a prompt preset");
         }
 
