@@ -1,4 +1,4 @@
-namespace RimTalkMemories.Budget
+namespace Arkh.Budget
 {
     /// <summary>
     /// Who gets served first when the character budget is divided up. **Lower is served first.**

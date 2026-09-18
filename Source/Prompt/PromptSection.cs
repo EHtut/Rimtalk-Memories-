@@ -1,38 +1,9 @@
 using System;
 using System.Collections.Generic;
-using RimTalk.API;
 using Verse;
 
-namespace RimTalkMemories.Integration
+namespace Arkh.Prompt
 {
-    /// <summary>
-    /// How a section attaches to its anchor.
-    ///
-    /// Inject and Hook are genuinely different mechanisms with different reach, not two spellings
-    /// of the same thing. An injection adds a new block near the category and is only consumed
-    /// when RimTalk assembles prose. A hook transforms the category's own value and also runs
-    /// during template variable resolution — so a hook reaches player-authored templates that
-    /// reference {{pawn.age}}, and an injection never does.
-    /// See docs/RIMTALK-API.md §1.1.
-    ///
-    /// The mode is a per-section setting rather than a compile-time choice, because RimWorld takes
-    /// twenty minutes to load and this way one run can try all four.
-    /// </summary>
-    public enum InjectionMode
-    {
-        /// <summary>A separate block, after RimTalk's own text for this category.</summary>
-        InjectAfter,
-
-        /// <summary>A separate block, before RimTalk's own text for this category.</summary>
-        InjectBefore,
-
-        /// <summary>Folded into RimTalk's own value for this category, after it.</summary>
-        HookAppend,
-
-        /// <summary>Replaces RimTalk's value for this category outright.</summary>
-        HookOverride
-    }
-
     /// <summary>One text this section could produce, for the profile view.</summary>
     public struct VariantSample
     {
@@ -57,45 +28,44 @@ namespace RimTalkMemories.Integration
     }
 
     /// <summary>
-    /// One thing this mod contributes to a prompt, described well enough that the profile panel
-    /// can show it without a game loaded.
+    /// One block of text this mod contributes to a prompt, described well enough that the profile
+    /// panel can show it with no game loaded.
     ///
-    /// This is the point of the whole type: a merged prompt cannot tell you which parts are ours,
-    /// so the panel renders these declarations rather than trying to find our text in RimTalk's
-    /// output. It reads the source instead of guessing at the result, and so cannot be wrong
-    /// about what we added.
+    /// Sections are declared once at startup into <see cref="PromptCatalog"/>, and the assembler
+    /// walks them in slot order when a prompt is built. Nothing anchors to anyone else's
+    /// categories any more — the slot *is* the position.
     /// </summary>
-    public sealed class InjectionDeclaration
+    public sealed class PromptSection
     {
         public string SectionName;
-        public ContextCategory Anchor;
-        public InjectionMode Mode;
 
-        /// <summary>Ordering among several mods attaching to the same anchor. Passed to RimTalk.</summary>
-        public int Priority = 100;
+        /// <summary>Which part of the prompt this belongs to.</summary>
+        public PromptSlot Slot;
+
+        /// <summary>Ordering within the slot. Lower first. Ties broken by name for stability.</summary>
+        public int Order = 100;
 
         /// <summary>
-        /// Order of service when the character budget is divided up — **lower is served first**,
-        /// and has nothing to do with <see cref="Priority"/> above, which is RimTalk's ordering at
-        /// an anchor. Two different questions that would be confusing to answer with one number.
+        /// Order of service when the character budget is divided — **lower is served first**, and
+        /// independent of <see cref="Order"/>, which is only about where the text sits. Two
+        /// different questions that would be confusing to answer with one number.
         /// </summary>
         public int BudgetPriority = 50;
 
         /// <summary>
-        /// True when RimTalk builds this once per participant rather than once per prompt. Pawn
-        /// sections are; environment sections are not. It triples the real cost of a pawn section
-        /// in a three-way conversation, so the budget has to know.
+        /// True when this is built once per participant rather than once per prompt. It triples
+        /// the real cost of a section in a three-way conversation, so the budget has to know.
         /// </summary>
         public bool PerParticipant;
 
         /// <summary>
         /// Characters this section would like. Defaults to the longest text it could emit, which
-        /// is the honest answer for a section whose output is bounded by authored text.
+        /// is the honest answer for a section bounded by authored text.
         /// </summary>
         public Func<int> DesiredChars;
 
         /// <summary>
-        /// Exactly one of these two is set. The int is the section's character allowance for this
+        /// Exactly one of these is set. The int is the section's character allowance for this
         /// call; a provider must clamp itself to it. Zero is legitimate and means "say nothing" —
         /// the budget squeezed this section out.
         /// </summary>
@@ -115,28 +85,23 @@ namespace RimTalkMemories.Integration
 
         // --- Live counters, written from the provider path ----------------------------------
 
-        /// <summary>Times RimTalk called us. Zero means the anchor is never reached.</summary>
         public int Calls;
 
         /// <summary>
-        /// Times we returned something. Tracked apart from Calls on purpose: "never called" and
-        /// "called but returned nothing" are different failures and must not look alike.
+        /// Tracked apart from Calls on purpose: "never built" and "built but returned nothing"
+        /// are different outcomes and must not look alike.
         /// </summary>
         public int NonEmptyReturns;
 
         public string LastEmitted;
-        public int LastEmittedTick;
 
         public bool IsPawnSection => PawnProvider != null;
-
-        public bool UsesHook => Mode == InjectionMode.HookAppend || Mode == InjectionMode.HookOverride;
 
         public void ResetCounters()
         {
             Calls = 0;
             NonEmptyReturns = 0;
             LastEmitted = null;
-            LastEmittedTick = 0;
         }
 
         public List<VariantSample> SafeVariants()

@@ -1,19 +1,18 @@
 using System.Collections.Generic;
-using RimTalkMemories.Budget;
-using RimTalkMemories.Integration;
-using RimTalkMemories.Util;
+using Arkh.Prompt;
+using Arkh.Util;
 using Verse;
 
-namespace RimTalkMemories.Context
+namespace Arkh.Context
 {
     /// <summary>
     /// Background every pawn on the map speaks from: what this world is, who runs it, what
     /// everyone here simply takes for granted.
     ///
-    /// This is environment context rather than pawn context because it is true of the place, not
-    /// the person — which also means RimTalk builds it once per prompt instead of once per
-    /// participant. For a four-pawn conversation that is the difference between paying for the
-    /// lore once and paying for it four times.
+    /// This is world context rather than pawn context because it is true of the place, not the
+    /// person — which also means it is built once per prompt instead of once per participant. For
+    /// a four-pawn conversation that is the difference between paying for the lore once and paying
+    /// for it four times.
     /// </summary>
     public static class WorldLore
     {
@@ -21,8 +20,8 @@ namespace RimTalkMemories.Context
 
         /// <summary>
         /// The map argument is unused: lore is the same everywhere, which is exactly why this is
-        /// environment context in the first place. Kept in the signature because that is the shape
-        /// RimTalk hands us.
+        /// world context in the first place. Kept in the signature because that is the shape every
+        /// world section has, and a special case here would cost more than the unused parameter.
         /// </summary>
         public static string Describe(Map map, int budget) => Text(budget);
 
@@ -37,7 +36,7 @@ namespace RimTalkMemories.Context
         /// </summary>
         public static string Text(int budget)
         {
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableWorldLore) return "";
 
             string lore = settings.WorldLore;
@@ -54,19 +53,10 @@ namespace RimTalkMemories.Context
             return string.IsNullOrEmpty(body) ? "" : Prefix + body;
         }
 
-        /// <summary>
-        /// The {{worldlore}} template variable. Looks its own allowance up, since RimTalk hands
-        /// variable providers a map and nothing else.
-        /// </summary>
-        public static string VariableText(Map map)
-        {
-            return Text(PromptBudget.For(ContextRegistrar.WorldLoreSection));
-        }
-
         /// <summary>The one text this section emits, for the profile panel.</summary>
         public static List<VariantSample> Variants()
         {
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             int cap = settings?.WorldLoreMaxChars ?? 1200;
 
             string text = Text(cap);

@@ -1,15 +1,15 @@
 using System.Collections.Generic;
-using RimTalkMemories.Integration;
-using RimTalkMemories.Util;
+using Arkh.Prompt;
+using Arkh.Util;
 using Verse;
 
-namespace RimTalkMemories.Context
+namespace Arkh.Context
 {
     /// <summary>
     /// Optional per-gender speech guidance.
     ///
-    /// This one is off by default, and deliberately so. RimTalk already tells the model each
-    /// pawn's gender, so anything added here is the player asserting that men and women in
+    /// This one is off by default, and deliberately so. The model is told each pawn's gender
+    /// already, so anything added here is the player asserting that men and women in
     /// their colony should *sound* different — which is a setting some campaigns want and
     /// many do not. Shipping it on with opinionated defaults would put words in every
     /// colonist's mouth that the player never asked for, so both fields start empty and the
@@ -21,7 +21,7 @@ namespace RimTalkMemories.Context
 
         public static string Describe(Pawn pawn, int budget)
         {
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableGenderVoice) return "";
             if (pawn?.RaceProps == null || !pawn.RaceProps.Humanlike) return "";
 
@@ -42,7 +42,7 @@ namespace RimTalkMemories.Context
         public static List<VariantSample> Variants()
         {
             var samples = new List<VariantSample>();
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             if (settings == null) return samples;
 
             samples.Add(Sample("Male", settings.MaleVoice));

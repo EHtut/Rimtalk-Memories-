@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     RimWorld takes about twenty minutes to load, so anything checkable without it should be.
-    This loads RimTalkMemories.dll by reflection, wires up settings, and drives the parts that
+    This loads Arkh.dll by reflection, wires up settings, and drives the parts that
     do not need a Pawn or a Map: the budget allocator, the text clamp, and every section's
     variant enumeration.
 
@@ -28,15 +28,15 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 $managed = Join-Path $RimWorldDir "RimWorldWin64_Data\Managed"
-$rimTalk = Join-Path $RimWorldDir "..\..\workshop\content\294100\3551203752\1.6\Assemblies"
+$probeExtra = @()
 $mine    = Join-Path $root "1.6\Assemblies"
 
-if (-not (Test-Path (Join-Path $mine "RimTalkMemories.dll"))) {
+if (-not (Test-Path (Join-Path $mine "Arkh.dll"))) {
     Write-Host "No build found. Run .\build.ps1 first." -ForegroundColor Red
     exit 1
 }
 
-$probe = @($mine, $rimTalk, $managed)
+$probe = @($mine, $managed)
 [AppDomain]::CurrentDomain.add_AssemblyResolve([ResolveEventHandler] {
     param($s, $e)
     $n = ($e.Name -split ',')[0]
@@ -48,44 +48,35 @@ $probe = @($mine, $rimTalk, $managed)
 })
 
 $BF = [Reflection.BindingFlags]'Public,Static'
-$asm = [Reflection.Assembly]::LoadFrom((Join-Path $mine "RimTalkMemories.dll"))
+$asm = [Reflection.Assembly]::LoadFrom((Join-Path $mine "Arkh.dll"))
 
 $T = @{
-    Settings = $asm.GetType('RimTalkMemories.Settings.MemoriesSettings')
-    Mod      = $asm.GetType('RimTalkMemories.RimTalkMemoriesMod')
-    Api      = $asm.GetType('RimTalkMemories.Integration.RimTalkApi')
-    Decl     = $asm.GetType('RimTalkMemories.Integration.InjectionDeclaration')
-    Budget   = $asm.GetType('RimTalkMemories.Budget.PromptBudget')
-    Text     = $asm.GetType('RimTalkMemories.Util.TextUtil')
-    Age      = $asm.GetType('RimTalkMemories.Context.AgeVoice')
-    Gender   = $asm.GetType('RimTalkMemories.Context.GenderVoice')
-    Lore     = $asm.GetType('RimTalkMemories.Context.WorldLore')
+    Settings = $asm.GetType('Arkh.Settings.ArkhSettings')
+    Mod      = $asm.GetType('Arkh.ArkhMod')
+    Catalog  = $asm.GetType('Arkh.Prompt.PromptCatalog')
+    Decl     = $asm.GetType('Arkh.Prompt.PromptSection')
+    Budget   = $asm.GetType('Arkh.Budget.PromptBudget')
+    Text     = $asm.GetType('Arkh.Util.TextUtil')
+    Age      = $asm.GetType('Arkh.Context.AgeVoice')
+    Gender   = $asm.GetType('Arkh.Context.GenderVoice')
+    Lore     = $asm.GetType('Arkh.Context.WorldLore')
 }
 
 $settings = [Activator]::CreateInstance($T.Settings)
 $T.Mod.GetField('Settings', $BF).SetValue($null, $settings)
 
-$variantsFieldType = $T.Decl.GetField('Variants').FieldType
-$declare = $T.Api.GetMethod('Declare', $BF)
-
-function New-Declaration($name, $priority, $perParticipant, $ownerType) {
-    $d = [Activator]::CreateInstance($T.Decl)
-    $T.Decl.GetField('SectionName').SetValue($d, $name)
-    $T.Decl.GetField('BudgetPriority').SetValue($d, $priority)
-    $T.Decl.GetField('PerParticipant').SetValue($d, $perParticipant)
-    $T.Decl.GetField('Variants').SetValue($d,
-        [Delegate]::CreateDelegate($variantsFieldType, $ownerType.GetMethod('Variants', $BF)))
-    return $d
-}
-
-# Mirrors ContextRegistrar. Anchors are irrelevant to allocation, so they are left default.
+# Declare the real sections rather than a mirror of them.
 #
-# [void] on every Invoke is load-bearing, not tidiness: MethodInfo.Invoke is declared to return
-# object, so even for a void method PowerShell emits its null into the pipeline. Inside a function
-# that turns the return value into an array and every lookup against it silently yields nothing.
-[void]$declare.Invoke($null, @((New-Declaration 'AgeVoice'    20 $true  $T.Age)))
-[void]$declare.Invoke($null, @((New-Declaration 'GenderVoice' 30 $true  $T.Gender)))
-[void]$declare.Invoke($null, @((New-Declaration 'WorldLore'   90 $false $T.Lore)))
+# PromptCatalog deliberately has no StaticConstructorOnStartup, so this works with no game: the
+# startup work that does need one lives in ArkhStartup. That separation is what lets this harness
+# exercise the shipping declarations instead of a copy that can quietly drift out of step.
+#
+# [void] is load-bearing, not tidiness: MethodInfo.Invoke is declared to return object, so even for
+# a void method PowerShell emits its null into the pipeline — which inside a function turns the
+# return value into an array, and every lookup against it then silently yields nothing.
+[void]$T.Catalog.GetMethod('EnsureDeclared', $BF).Invoke($null, @())
+
+$sectionCount = $T.Catalog.GetProperty('Sections', $BF).GetValue($null).Count
 
 $script:failures = 0
 function Check($label, $condition, $detail) {
@@ -118,7 +109,11 @@ Check "long text is trimmed to the limit" ($clamp.Invoke($null, @(("a b " * 100)
 Check "spaceless text still clamps (CJK, URLs)" ($clamp.Invoke($null, @(("x" * 500), 40)).Length -le 41) "length was $($clamp.Invoke($null,@(('x'*500),40)).Length)"
 Check "zero budget yields nothing" ($clamp.Invoke($null, @("anything", 0)) -eq "") "got non-empty"
 
-# --- 2. Variant enumeration with nothing authored --------------------------------------------
+# --- 2. The real catalogue --------------------------------------------------------------------
+Write-Host "`nCatalogue"
+Check "sections declare themselves with no game loaded" ($sectionCount -ge 3) "got $sectionCount"
+
+# --- 3. Variant enumeration with nothing authored --------------------------------------------
 Write-Host "`nVariants, nothing authored"
 $ageVariants = $T.Age.GetMethod('Variants', $BF).Invoke($null, @())
 Check "five age bands" ($ageVariants.Count -eq 5) "got $($ageVariants.Count)"

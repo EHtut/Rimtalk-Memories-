@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-	<packageId>ethan.rimtalkmemories</packageId>
-	<name>RimTalk Memories</name>
+	<packageId>ethan.arkh</packageId>
+	<name>Arkh</name>
 	<author>Ethan</author>
-	<modVersion>0.1.0</modVersion>
-	<description>An overhaul layer for RimTalk. One mod in place of a shelf of companions.
+	<modVersion>0.2.0</modVersion>
+	<description>Colonists who talk, and who remember.
 
-Colonists remember. Memories are scored for weight and for how much they matter right now, and the ones that belong together surface together, so a pawn recalls the raid and the person they lost in it in the same breath.
+Arkh generates colony dialogue with a language model of your choosing, and builds it around a memory system rather than a transcript. Memories are scored for weight and for how much they matter right now, and the ones that belong together surface together — so a colonist recalls the raid and the person they lost in it in the same breath.
 
 Around that sits the talking itself:
-- Prompt presets you can edit, with separate voices by age and by gender.
+- Prompt blocks you can read and edit, with separate voices by age and by gender.
 - World and colony lore every pawn speaks from.
-- Dialogue templates for the beats you want to happen on purpose.
 - Distance rules for who can hear what, and how far a shout carries.
-- Length controls for monologues and for conversations.
 - Whisper, shout and thought as distinct ways of speaking.
+- A character budget, so background text gives way before anything that matters to the moment.
 
-Requires RimTalk.
+Works with OpenAI, Gemini, DeepSeek, OpenRouter, Ollama and LM Studio.
+
+NOT COMPATIBLE WITH RIMTALK. Arkh replaces it rather than extending it — running both means two mods generating dialogue for the same colonists, and paying for every line twice.
+
+Early development. Requires Harmony.
 	</description>
 	<supportedVersions>
 		<li>1.6</li>
@@ -28,14 +31,11 @@ Requires RimTalk.
 			<steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
 			<downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
 		</li>
-		<li>
-			<packageId>cj.rimtalk</packageId>
-			<displayName>RimTalk</displayName>
-			<steamWorkshopUrl>steam://url/CommunityFilePage/3551203752</steamWorkshopUrl>
-		</li>
 	</modDependencies>
 	<loadAfter>
 		<li>brrainz.harmony</li>
-		<li>cj.rimtalk</li>
 	</loadAfter>
+	<incompatibleWith>
+		<li>cj.rimtalk</li>
+	</incompatibleWith>
 </ModMetaData>

@@ -1,40 +1,32 @@
 <#
 .SYNOPSIS
-    Builds RimTalk Memories straight into 1.6/Assemblies.
+    Builds Arkh straight into 1.6/Assemblies.
 
 .EXAMPLE
     .\build.ps1
     .\build.ps1 -Configuration Debug
-    .\build.ps1 -RimTalkDll "C:\path\to\RimTalk.dll"
 #>
 param(
     [ValidateSet('Debug', 'Release')]
-    [string]$Configuration = 'Release',
-
-    [string]$RimTalkDll = ''
+    [string]$Configuration = 'Release'
 )
 
 $ErrorActionPreference = 'Stop'
 $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$project = Join-Path $projectDir 'RimTalkMemories.csproj'
+$project = Join-Path $projectDir 'Arkh.csproj'
 
-$args = @('build', $project, '-c', $Configuration, '-v', 'minimal')
-if ($RimTalkDll -ne '') {
-    $args += "-p:RimTalkDll=$RimTalkDll"
-}
-
-Write-Host "Building RimTalk Memories ($Configuration)..." -ForegroundColor Cyan
-& dotnet @args
+Write-Host "Building Arkh ($Configuration)..." -ForegroundColor Cyan
+& dotnet build $project -c $Configuration -v minimal
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build FAILED (exit $LASTEXITCODE)" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-$dll = Join-Path $projectDir '1.6\Assemblies\RimTalkMemories.dll'
+$dll = Join-Path $projectDir '1.6\Assemblies\Arkh.dll'
 if (Test-Path $dll) {
     $size = [math]::Round((Get-Item $dll).Length / 1KB, 1)
-    Write-Host "Build OK -> 1.6\Assemblies\RimTalkMemories.dll ($size KB)" -ForegroundColor Green
+    Write-Host "Build OK -> 1.6\Assemblies\Arkh.dll ($size KB)" -ForegroundColor Green
 } else {
     Write-Host "Build reported success but $dll is missing." -ForegroundColor Yellow
     exit 1

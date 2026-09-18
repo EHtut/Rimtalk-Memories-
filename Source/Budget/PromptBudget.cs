@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using RimTalkMemories.Integration;
+using Arkh.Prompt;
 
-namespace RimTalkMemories.Budget
+namespace Arkh.Budget
 {
     /// <summary>
     /// The one thing that knows how much prompt text this mod may add, and divides it up.
@@ -30,7 +30,7 @@ namespace RimTalkMemories.Budget
         {
             get
             {
-                var settings = RimTalkMemoriesMod.Settings;
+                var settings = ArkhMod.Settings;
                 return settings == null ? 2000 : settings.TotalBudgetChars;
             }
         }
@@ -46,7 +46,7 @@ namespace RimTalkMemories.Budget
         {
             get
             {
-                var settings = RimTalkMemoriesMod.Settings;
+                var settings = ArkhMod.Settings;
                 return settings == null ? 3 : UnityEngine.Mathf.Max(1, settings.AssumedParticipants);
             }
         }
@@ -97,16 +97,16 @@ namespace RimTalkMemories.Budget
 
         public static int Participants => AssumedParticipants;
 
-        private static IEnumerable<InjectionDeclaration> Ordered()
+        private static IEnumerable<PromptSection> Ordered()
         {
             // Lower BudgetPriority is served first. Ties broken by name so the order is stable
             // between sessions and the panel does not reshuffle itself.
-            return RimTalkApi.Registrations
+            return PromptCatalog.Sections
                 .OrderBy(d => d.BudgetPriority)
                 .ThenBy(d => d.SectionName);
         }
 
-        private static int Multiplier(InjectionDeclaration d)
+        private static int Multiplier(PromptSection d)
         {
             return d.PerParticipant ? AssumedParticipants : 1;
         }

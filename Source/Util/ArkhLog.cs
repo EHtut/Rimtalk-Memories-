@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using Verse;
 
-namespace RimTalkMemories.Util
+namespace Arkh.Util
 {
     /// <summary>
     /// Every log line this mod writes goes through here, so they all carry the same prefix
     /// and a player can tell at a glance which mod is complaining.
     /// </summary>
-    public static class RTMLog
+    public static class ArkhLog
     {
-        private const string Prefix = "[RimTalk Memories] ";
+        private const string Prefix = "[Arkh] ";
 
         private static readonly HashSet<int> SeenOnce = new HashSet<int>();
 

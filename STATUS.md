@@ -1,80 +1,76 @@
 # Status
 
 **The only place progress is recorded.** Scope and task lists live in [PILLARS.md](PILLARS.md);
-what each feature *is* lives in [DESIGN.md](DESIGN.md). This file says how far along we are and
-nothing else — if it disagrees with those, this file is the one to fix.
+what each feature *is* lives in [DESIGN.md](DESIGN.md). If this disagrees with those, this is the
+file to fix.
 
 Last updated: **2026-09-17**
 
 | | |
 |---|---|
-| Builds | **yes** — `.\build.ps1`, 0 warnings, 0 errors |
-| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 13 checks |
+| Builds | **yes** — `.\build.ps1`, 0 warnings, 0 errors, `Arkh.dll` |
+| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 14 checks |
+| Dependencies | **Harmony only.** No RimTalk, no other mod. |
 | Loaded in RimWorld | **never** |
-| Repo | [EHtut/Rimtalk-Memories-](https://github.com/EHtut/Rimtalk-Memories-) |
+| Repo | [EHtut/Rimtalk-Memories-](https://github.com/EHtut/Rimtalk-Memories-) — name now lags the mod |
 
 ---
 
 ## Pillars
 
-| Pillar | State | Notes |
-|---|---|---|
-| P1 Foundation | **one task left** | Everything built. Only the verification run remains. |
-| P2 Voice and lore | in progress | Age, gender, world lore built. Colony lore, per-save override, prompt entries, starter preset not started. |
-| P3 Earshot and delivery | not started | First pillar needing Harmony. |
-| P4 Memory core | not started | Wants P3's earshot model for witness detection. |
-| P5 Recall | not started | |
-| P6 Smart context | not started | Shares P5's relevance scorer. |
-| P7 Dialogue templates | not started | Needs design before code. |
-| P8 Actions | **blocked** | Waiting on reference material. Scope ambiguous — [PILLARS.md](PILLARS.md) P8. |
-| P9 Literature and quests | not started | **Independent of every other pillar** — can be pulled forward at any time. |
-| P10 Mod integration | not started | RimTalk Custom Events, Arkhdottir. |
-| P11 RJW compatibility | not started | Deliberately last. |
+| | Pillar | State | Notes |
+|---|---|---|---|
+| A | P1 Core | **done, unverified** | Settings, budget, slots, catalogue, panel, harness. Never run in game. |
+| A | P2 Model client | **next** | The gate on everything: nothing speaks until this exists. |
+| A | P3 Talk engine | not started | |
+| A | P4 Display | not started | |
+| B | P5 Context and prompt | partly built | Age, gender, world lore done. Colony lore, persona, instruction slots not started. |
+| B | P6 Earshot and delivery | not started | |
+| C | P7 Memory core | not started | Wants P6's earshot for witness detection. |
+| C | P8 Recall | not started | |
+| C | P9 Smart context | not started | Shares P8's scorer. |
+| D | P10 Dialogue templates | not started | Needs design before code. |
+| D | P11 Actions | **unblocked** | Reference landed (`references/Actions`), not yet read. |
+| D | P12 Literature and quests | not started | Depends on P2 only — can be pulled forward. |
+| E | P13 Mod integration | not started | |
+| E | P14 RJW | not started | Deliberately last. |
 
 ## Decisions made
 
-- **Not forking RimTalk.** Considered and declined — [DESIGN.md](DESIGN.md) §2.2 has the reasoning
-  and the conditions under which to revisit it. The `RimTalkApi` seam is what keeps the option open.
-- **Prompt injection through the API is fully dynamic** ([DESIGN.md](DESIGN.md) §2.1). Preset entry
-  content is rendered through Scriban at build time and resolves variables other mods registered,
-  so a prompt entry plus a registered context variable is a block we place ourselves, anywhere in
-  the message list, filled fresh on every prompt.
+- **Standalone, not a RimTalk companion** ([DESIGN.md](DESIGN.md) §2). Reversed an earlier
+  decision. The deciding argument: RimTalk's prompt is a player-owned preset, so displacing its
+  content meant either asking players to enable advanced mode and delete entries by hand, or
+  rewriting their configuration behind their back.
+- **Renamed to Arkh**, packageId `ethan.arkh`. A working name — cheap to change while pre-release,
+  breaking after a Workshop upload.
+- **Incompatible with RimTalk**, declared in About.xml and warned loudly at startup. Both generate
+  dialogue for the same colonists.
+- **All seven providers eventually**, OpenAI-compatible first because one implementation covers
+  six of them ([DESIGN.md](DESIGN.md) §17).
 - **Budget order** ([DESIGN.md](DESIGN.md) §12): memory, then how they speak, then what everyone
   knows.
-- **RimTalk is transport; the content is ours** ([DESIGN.md](DESIGN.md) §2.1a). Its whole prompt is
-  five preset entries. Four are ours to replace — its voice, its context dump, its chat-history
-  "memory". Only the JSONL format entry must survive, because RimTalk parses against it. Persona
-  goes via an `Override` hook on `Pawn:personality`.
-- **Advanced prompt mode is the gate.** `UseAdvancedPromptMode` is off by default; in simple mode
-  RimTalk re-inserts its built-in entries, so our additions survive but our removals do not. P2
-  owns detecting it and offering to turn it on.
 
-## The honest state of P1 and P2
+## The honest state
 
-Everything written compiles against the real RimTalk assembly; decompiling our own output confirms
-all four attachment modes reach the intended RimTalk entry points at the intended anchors; and the
-smoke test drives the budget allocator, text clamping and variant enumeration with no game loaded.
-That is as far as static checking goes. **No line of this mod has run in RimWorld.**
+The mod builds, has no dependencies beyond Harmony, and the harness passes 14 checks against the
+real shipping declarations. **No line of it has run in RimWorld**, and nothing will speak until P2
+and P3 exist — that is the cost of the standalone decision, stated in [DESIGN.md](DESIGN.md) §2.1.
 
-Two unknowns remain that only a running game can settle:
-
-1. **Do the anchors fire?** We attach at `Pawn:age`, `Pawn:gender` and `Environment:time`. A
-   section at a category RimTalk never reaches is silently dead — no error, no text, no clue. The
-   panel's Live tab answers exactly this, and distinguishes "never called" from "called but
-   returned nothing".
-2. **Does the folded text read well?** Age folds into RimTalk's own age value now, so a template
-   using `{{pawn.age}}` gets `34 — speaks from long experience…` inline. If it reads badly, the
-   mode is a setting — switch it in the panel without rebuilding.
+What exists today is a prompt that can be composed, budgeted and inspected, with nothing to send
+it to.
 
 ## Next action
 
-**P1's verification run** — the last task in the pillar. Checklist in
-[docs/specs/P1-foundation.md](docs/specs/P1-foundation.md) §1.4. Run `tools/smoke-test.ps1`, then
-open the panel from the main menu and correct the wording there, and only then load a colony.
+**P2 — the model client**, starting with the mock provider. That ordering is deliberate: the mock
+makes P3, P4 and all of Phase C developable with no key, no network and no bill, and lets the
+harness exercise the whole pipeline headless.
 
-After that, P2 or P9 — P9 depends on nothing and is a change of pace.
+Write `docs/specs/P2-model-client.md` when starting it. (The old P1 spec was deleted — it described
+integrating with RimTalk's anchors, which no longer exists.)
 
 ## Known gaps
 
-- **P8 has no design.** It was in the original brief and is still only two candidate readings.
-- Open design questions are tracked in [DESIGN.md](DESIGN.md) §11.
+- **P11 has no design**, though the reference that unblocks it has arrived and not been read.
+- Open questions are tracked in [DESIGN.md](DESIGN.md) §11.
+- The GitHub repo is still named `Rimtalk-Memories-`. Renaming it is Ethan's to do; the git remote
+  needs updating afterwards.

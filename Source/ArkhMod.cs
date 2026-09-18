@@ -1,33 +1,33 @@
-using RimTalkMemories.Budget;
-using RimTalkMemories.Context;
-using RimTalkMemories.Settings;
-using RimTalkMemories.UI;
+using Arkh.Budget;
+using Arkh.Context;
+using Arkh.Settings;
+using Arkh.UI;
 using UnityEngine;
 using Verse;
 
-namespace RimTalkMemories
+namespace Arkh
 {
     /// <summary>
     /// Mod entry point and settings window.
     ///
-    /// Nothing here talks to RimTalk. Registration happens in ContextRegistrar at startup;
+    /// Nothing here builds prompts. Sections are declared in PromptCatalog at startup;
     /// this class only owns the settings those providers read.
     /// </summary>
-    public class RimTalkMemoriesMod : Mod
+    public class ArkhMod : Mod
     {
-        public static MemoriesSettings Settings;
+        public static ArkhSettings Settings;
 
         private Vector2 _scroll;
 
         /// <summary>Grows as sections are added; used to size the scroll view.</summary>
         private float _contentHeight = 800f;
 
-        public RimTalkMemoriesMod(ModContentPack content) : base(content)
+        public ArkhMod(ModContentPack content) : base(content)
         {
-            Settings = GetSettings<MemoriesSettings>();
+            Settings = GetSettings<ArkhSettings>();
         }
 
-        public override string SettingsCategory() => "RimTalk Memories";
+        public override string SettingsCategory() => "Arkh";
 
         /// <summary>
         /// Settings changes can move the budget — a longer lore cap, a different conversation
@@ -49,22 +49,22 @@ namespace RimTalkMemories
             listing.Begin(viewRect);
 
             listing.CheckboxLabeled(
-                "Enable RimTalk Memories",
+                "Enable Arkh",
                 ref Settings.Enabled,
                 "Turns off every context injection without unloading the mod.");
             listing.Gap(6f);
 
-            // Works from the main menu: this mod's settings and RimTalk's prompt system both load
-            // at startup, so the whole static picture is reviewable without opening a colony.
+            // Works from the main menu: RimWorld loads mod settings at startup, so the whole
+            // static picture is reviewable without opening a colony.
             var buttonRect = listing.GetRect(34f);
             buttonRect.width = Mathf.Min(340f, buttonRect.width);
             if (Widgets.ButtonText(buttonRect, "Open injection profile…"))
             {
-                Find.WindowStack.Add(new InjectionProfileWindow());
+                Find.WindowStack.Add(new PromptProfileWindow());
             }
             TooltipHandler.TipRegion(buttonRect,
-                "Shows exactly what this mod adds to RimTalk's prompts, and what RimTalk was "
-                + "already sending. Works here at the main menu — no colony needed.");
+                "Shows the prompt Arkh builds, block by block, and what it costs. "
+                + "Works here at the main menu — no colony needed.");
 
             listing.GapLine();
 
@@ -91,7 +91,7 @@ namespace RimTalkMemories
             listing.CheckboxLabeled(
                 "Give each gender its own voice",
                 ref Settings.EnableGenderVoice,
-                "Off by default. RimTalk already tells the model each pawn's gender; this is " +
+                "Off by default. The model is already told each pawn's gender; this is " +
                 "only for colonies that want men and women to sound different. Both boxes " +
                 "start empty, so nothing is added until you write it.");
 

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using RimTalkMemories.Integration;
-using RimTalkMemories.Settings;
-using RimTalkMemories.Util;
+using Arkh.Prompt;
+using Arkh.Settings;
+using Arkh.Util;
 using Verse;
 
-namespace RimTalkMemories.Context
+namespace Arkh.Context
 {
     /// <summary>The age brackets this mod gives a distinct voice to.</summary>
     public enum AgeBand
@@ -20,11 +20,10 @@ namespace RimTalkMemories.Context
     /// <summary>
     /// Tells the model how someone this old actually sounds.
     ///
-    /// RimTalk already puts the pawn's age in the prompt, but a number alone does very little:
-    /// a model handed "age 6" still writes a six-year-old with the vocabulary of a diplomat.
-    /// What moves the needle is an instruction about register — sentence length, what they
-    /// understand, what they care about — so that is what gets injected, immediately after
-    /// the age RimTalk already wrote.
+    /// The prompt carries the pawn's age already, but a number alone does very little: a model
+    /// handed "age 6" still writes a six-year-old with the vocabulary of a diplomat. What moves
+    /// the needle is an instruction about register — sentence length, what they understand, what
+    /// they care about — so that is what this block says.
     /// </summary>
     public static class AgeVoice
     {
@@ -75,7 +74,7 @@ namespace RimTalkMemories.Context
         }
 
         /// <summary>The player's text for a band, falling back to the built-in default.</summary>
-        public static string GuidanceFor(MemoriesSettings settings, AgeBand band)
+        public static string GuidanceFor(ArkhSettings settings, AgeBand band)
         {
             string custom;
             switch (band)
@@ -98,7 +97,7 @@ namespace RimTalkMemories.Context
         /// </summary>
         public static string Describe(Pawn pawn, int budget)
         {
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             if (settings == null || !settings.Enabled || !settings.EnableAgeVoice) return "";
 
             var band = BandFor(pawn);
@@ -114,7 +113,7 @@ namespace RimTalkMemories.Context
 
         private const string Prefix = "Speech for their age: ";
 
-        /// <summary>Exposed as a template variable so players can place it themselves.</summary>
+        /// <summary>The band's name in lower case, for display and for branching on.</summary>
         public static string BandLabel(Pawn pawn)
         {
             var band = BandFor(pawn);
@@ -144,7 +143,7 @@ namespace RimTalkMemories.Context
         public static List<VariantSample> Variants()
         {
             var samples = new List<VariantSample>();
-            var settings = RimTalkMemoriesMod.Settings;
+            var settings = ArkhMod.Settings;
             if (settings == null) return samples;
 
             foreach (AgeBand band in Enum.GetValues(typeof(AgeBand)))

@@ -1,4 +1,4 @@
-namespace RimTalkMemories.Util
+namespace Arkh.Util
 {
     public static class TextUtil
     {
