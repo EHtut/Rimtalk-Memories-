@@ -57,6 +57,10 @@ the earshot question P6 answers.
 
 # Phase A — Engine
 
+**Verification checklist:** [docs/specs/PhaseA-verification.md](docs/specs/PhaseA-verification.md)
+— one load, worked end to end, with a Stage 0 that costs nothing and catches most faults before
+the twenty minutes are spent.
+
 ## P1 — Core
 
 **Goal:** settings, logging, the budget, and a panel that shows what we would send.
@@ -94,9 +98,11 @@ the earshot question P6 answers.
       response, local server down. Each distinct, quiet and player-readable.
 - [x] Settings UI: provider, key, model, endpoint. Key hidden behind a Show toggle, never logged.
 - [x] Harness coverage for request shaping, response parsing and every failure branch
+- [x] **Test-connection button** — sends the real instruction and contract and reads the reply
+      back through the real parser, so it answers whether a provider *and model* will produce
+      usable speech, not merely whether the endpoint answers. Works at the main menu.
 - [ ] Gemini native provider
 - [ ] Player2 last — its device-auth flow is the only one needing an interactive login
-- [ ] **Test-connection button** — otherwise the only way to check a key is to load a colony
 - [ ] Token count and running cost surfaced in the profile panel
 - [ ] Retry with backoff, transient failures only
 

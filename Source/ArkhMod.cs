@@ -123,6 +123,36 @@ namespace Arkh
                 }
             }
 
+            // Answers "will colonists actually speak" without a twenty-minute colony load, and
+            // works here at the main menu.
+            listing.Gap(6f);
+            var testRow = listing.GetRect(34f);
+            testRow.width = Mathf.Min(220f, testRow.width);
+
+            if (ConnectionTest.Running)
+            {
+                Widgets.ButtonText(testRow, "Testing…", active: false);
+            }
+            else if (Widgets.ButtonText(testRow, "Test connection"))
+            {
+                ConnectionTest.Start(Settings);
+            }
+            TooltipHandler.TipRegion(testRow,
+                "Sends one short request using the real instruction and output contract, and reads "
+                + "the reply back through the real parser. It answers whether this provider and "
+                + "model will actually produce usable speech — not merely whether they are reachable.");
+
+            var test = ConnectionTest.Current;
+            if (!string.IsNullOrEmpty(test.Summary))
+            {
+                string colour = test.Status == ConnectionTest.State.Succeeded ? "#88DD88"
+                    : test.Status == ConnectionTest.State.Failed ? "#FF8888"
+                    : "#CCCCCC";
+
+                listing.Label("<color=" + colour + ">" + test.Summary + "</color>");
+                if (!string.IsNullOrEmpty(test.Detail)) listing.Label("<i>" + test.Detail + "</i>");
+            }
+
             listing.Gap(6f);
             listing.Label($"Reply length cap: <b>{Settings.MaxResponseTokens}</b> tokens");
             Settings.MaxResponseTokens = (int)listing.Slider(Settings.MaxResponseTokens, 50f, 1000f);

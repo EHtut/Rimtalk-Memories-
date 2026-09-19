@@ -9,7 +9,7 @@ Last updated: **2026-09-17**
 | | |
 |---|---|
 | Builds | **yes** — `.\build.ps1`, 0 warnings, 0 errors, `Arkh.dll` |
-| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 53 checks |
+| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 58 checks |
 | Dependencies | **Harmony and Interaction Bubbles.** No RimTalk. |
 | Loaded in RimWorld | **never** |
 | Repo | [EHtut/Rimtalk-Memories-](https://github.com/EHtut/Rimtalk-Memories-) — name now lags the mod |
@@ -21,7 +21,7 @@ Last updated: **2026-09-17**
 | | Pillar | State | Notes |
 |---|---|---|---|
 | A | P1 Core | **done, unverified** | Settings, budget, slots, catalogue, panel, harness. Never run in game. |
-| A | P2 Model client | **mostly built** | Mock + OpenAI-compatible working, 22 harness checks. Gemini, Player2 and a test-connection button remain. |
+| A | P2 Model client | **mostly built** | Mock + OpenAI-compatible + test-connection button. Gemini and Player2 remain. |
 | A | P3 Talk engine | **built, unverified** | Selection, scheduling, threading, parsing, diagnostics. Needed no Harmony. |
 | A | P4 Display | **built, unverified** | A bridge, not a renderer: Bubbles draws, we publish to vanilla PlayLog. |
 | B | P5 Context and prompt | partly built | Age, gender, world lore done. Colony lore, persona, instruction slots not started. |
@@ -73,12 +73,15 @@ than .NET Framework 4.8 is a trap.
 
 ## Next action
 
-**The first in-game run.** Phase A is complete, so there is finally something to watch: set the
-provider to Mock, load a colony, and see whether colonists speak.
+**The Phase A verification run**, against
+[docs/specs/PhaseA-verification.md](docs/specs/PhaseA-verification.md).
 
-Worth building the **test-connection button** first
-([docs/specs/P2-model-client.md](docs/specs/P2-model-client.md)) so the same twenty-minute load can
-also check a real API key, rather than spending a second load on it.
+Stage 0 of that checklist costs nothing and should be done first: build, harness, then the
+main-menu checks — test connection against the mock *and* against a real provider, and read every
+age band's wording in the profile panel. Wording fixed at the main menu is wording that does not
+cost a second load.
+
+Only then load a colony, with the provider on Mock so the first pass is free.
 
 After that, Phase B — or P12, which depends on nothing past P2 and is a change of pace.
 

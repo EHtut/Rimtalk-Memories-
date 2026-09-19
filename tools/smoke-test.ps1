@@ -379,6 +379,49 @@ Check "takes def, initiator, recipient and the spoken line" ($null -ne $ctor) "n
 $tDisplay = $asm.GetType('Arkh.Display.SpeechDisplay')
 Check "display wiring is idempotent" ($null -ne $tDisplay.GetMethod('Wire', $BF)) "no Wire method"
 
+# --- 10. End to end, through the connection test --------------------------------------------------
+# The widest check here: builds the real instruction and contract, sends them through a real client,
+# and reads the reply back through the real parser. Against the mock that is the whole pipeline bar
+# pawn selection and drawing, exercised with no game and no bill.
+Write-Host "`nEnd to end (connection test, mock provider)"
+$tTest = $asm.GetType('Arkh.Model.ConnectionTest')
+$startTest = $tTest.GetMethod('Start', $BF)
+$currentProp = $tTest.GetProperty('Current', $BF)
+
+function Wait-Test($timeoutMs = 8000) {
+    $waited = 0
+    while ("$($currentProp.GetValue($null).Status)" -eq 'Running' -and $waited -lt $timeoutMs) {
+        Start-Sleep -Milliseconds 50
+        $waited += 50
+    }
+    return $currentProp.GetValue($null)
+}
+
+$settings.Provider = 0          # Mock
+$settings.MockFailureRate = [float]0.0
+$settings.MockDelayMs = 0
+[void]$startTest.Invoke($null, @($settings))
+$ok = Wait-Test
+Check "a healthy provider reports success" ("$($ok.Status)" -eq 'Succeeded') "status=$($ok.Status) summary=$($ok.Summary)"
+Check "success reports what was actually parsed as speech" ($ok.Detail -like '*Parsed as speech*') "detail=$($ok.Detail)"
+
+$settings.MockFailureRate = [float]1.0
+[void]$startTest.Invoke($null, @($settings))
+$bad = Wait-Test
+Check "a failing provider reports failure, not a hang" ("$($bad.Status)" -eq 'Failed') "status=$($bad.Status)"
+Check "the failure names something a player can act on" (-not [string]::IsNullOrWhiteSpace($bad.Summary)) "summary was empty"
+
+$settings.Provider = 1          # OpenAI, with no key configured
+$settings.ApiKey = ''
+[void]$startTest.Invoke($null, @($settings))
+$unset = Wait-Test
+Check "an unconfigured provider says so instead of calling out" (
+    "$($unset.Status)" -eq 'Failed' -and $unset.Summary -like '*not configured*'
+) "status=$($unset.Status) summary=$($unset.Summary)"
+
+$settings.Provider = 0
+$settings.MockFailureRate = [float]0.0
+
 Write-Host ""
 if ($script:failures -eq 0) {
     Write-Host "All smoke checks passed." -ForegroundColor Green
