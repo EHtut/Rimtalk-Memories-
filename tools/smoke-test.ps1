@@ -355,6 +355,30 @@ Check "the contract names lines, speaker and text" (
     $contractText.Contains('"lines"') -and $contractText.Contains('"speaker"') -and $contractText.Contains('"text"')
 ) "contract text drifted from the parser"
 
+# --- 9. The display bridge -----------------------------------------------------------------------
+# Interaction Bubbles takes anything that is a PlayLogEntry_Interaction out of vanilla PlayLog.Add
+# and renders ToGameStringFromPOV above the initiator. Those two facts are the entire contract, and
+# both are checkable here — getting either wrong would show up in game as silence.
+Write-Host "`nDisplay bridge"
+$tEntry = $asm.GetType('Arkh.Display.PlayLogEntry_ArkhSpeech')
+Check "speech entry exists" ($null -ne $tEntry) "type not found"
+
+$baseName = $tEntry.BaseType.Name
+Check "derives from PlayLogEntry_Interaction, which is what Bubbles accepts" ($baseName -eq 'PlayLogEntry_Interaction') "base was $baseName"
+
+$AF = [Reflection.BindingFlags]'Public,NonPublic,Instance'
+$worker = $tEntry.GetMethod('ToGameStringFromPOV_Worker', $AF)
+Check "overrides the text worker, not the sealed wrapper" ($null -ne $worker -and $worker.DeclaringType -eq $tEntry) `
+      "declared on $($worker.DeclaringType)"
+
+Check "has the parameterless constructor Scribe needs on load" ($null -ne $tEntry.GetConstructor([Type]::EmptyTypes)) "missing"
+
+$ctor = $tEntry.GetConstructors() | Where-Object { $_.GetParameters().Count -eq 4 }
+Check "takes def, initiator, recipient and the spoken line" ($null -ne $ctor) "no 4-arg constructor"
+
+$tDisplay = $asm.GetType('Arkh.Display.SpeechDisplay')
+Check "display wiring is idempotent" ($null -ne $tDisplay.GetMethod('Wire', $BF)) "no Wire method"
+
 Write-Host ""
 if ($script:failures -eq 0) {
     Write-Host "All smoke checks passed." -ForegroundColor Green

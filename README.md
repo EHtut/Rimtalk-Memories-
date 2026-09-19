@@ -12,10 +12,14 @@ shared world and colony lore, distance rules for who can hear what, whisper / sh
 distinct ways of speaking, and a character budget so background text gives way before anything
 that matters to the moment.
 
-**RimWorld 1.6. Requires Harmony, and nothing else.**
+**RimWorld 1.6. Requires Harmony and [Interaction Bubbles](https://steamcommunity.com/sharedfiles/filedetails/?id=1516158345).**
 
-> ⚠️ Early development. [STATUS.md](STATUS.md) has what actually works today — currently the
-> prompt layer only, and it has not been run in-game.
+Bubbles draws the speech. It already does that well and players have already tuned its settings, so
+Arkh publishes lines to RimWorld's own social log and lets Bubbles render them — no second set of
+controls, and no second bubble.
+
+> ⚠️ Early development. The engine is complete — prompt, model client, talk scheduling and display
+> — but **none of it has been run in RimWorld yet**. [STATUS.md](STATUS.md) is the honest account.
 
 ## Not compatible with RimTalk
 
@@ -52,7 +56,7 @@ required to compile. `-Configuration Debug` for a debug build. Restart RimWorld 
 assembly.
 
 Before any in-game test, run the headless harness — it drives the built assembly with no game
-loaded and has already caught two bugs that would each have cost a twenty-minute load:
+loaded, and has already caught four bugs that would each have cost a twenty-minute load to find:
 
 ```bash
 ./tools/smoke-test.ps1
@@ -66,12 +70,15 @@ have a .NET SDK.
 ```
 About/            Mod manifest
 Source/
-  Prompt/         Prompt slots, the section catalogue
+  Model/          Talking to a language model, and failing well when we cannot
+  Prompt/         Prompt slots, the section catalogue, assembly
   Context/        What goes in the blocks (age, gender, world lore)
+  Talk/           Who speaks and when; parsing what comes back
+  Display/        The bridge to Interaction Bubbles
   Budget/         The character budget and its priority order
   Integration/    Conflict detection, and later other mods
   Settings/       Player settings
-  Util/           Logging, text
+  Util/           Logging, text, JSON
 docs/             Reference notes; per-pillar specs in docs/specs/
 tools/            Headless harness
 references/       Third-party code, read-only — not committed

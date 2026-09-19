@@ -1,3 +1,4 @@
+using Arkh.Display;
 using Arkh.Integration;
 using Arkh.Prompt;
 using Arkh.Util;
@@ -19,7 +20,11 @@ namespace Arkh
         static ArkhStartup()
         {
             PromptCatalog.EnsureDeclared();
+            SpeechDisplay.Wire();
+
             ConflictDetector.WarnIfAnyActive();
+            SpeechDisplay.WarnIfMissing();
+
             ArkhLog.Message("ready — " + PromptCatalog.Sections.Count + " prompt sections declared.");
         }
     }

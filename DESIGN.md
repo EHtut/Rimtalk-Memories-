@@ -220,11 +220,16 @@ mod. Kept here and only here, so the surface is always countable.
 
 | Need | Why | Status |
 |---|---|---|
-| Draw speech above pawns | No vanilla hook for arbitrary overhead text | §19 |
-| Suppress the "slighted" thought when a pawn was merely out of earshot | `MemoryThoughtHandler.TryGainMemory` | §9 |
-| Observe battle and social log entries as memory sources | `BattleLog.Add`, `PlayLog` | §8 |
+| Suppress the "slighted" thought when a pawn was merely out of earshot | `MemoryThoughtHandler.TryGainMemory` | §9, not built |
+| Observe battle and social log entries as memory sources | `BattleLog.Add`, `PlayLog` | §8, not built |
 
 Every patch added must be listed here as it lands, with its reason.
+
+**Phase A shipped with none.** The whole engine — client, selection, scheduling, threading, parsing,
+display — needed no Harmony at all. Owning the pipeline makes scheduling and selection ours by
+construction, and display goes through vanilla `PlayLog` because that is where Interaction Bubbles
+already listens (§19). Worth protecting: every patch avoided is a way RimWorld updates cannot break
+this mod.
 
 ## 11. Open questions
 
@@ -364,12 +369,32 @@ Who speaks, when, and what happens to the reply.
 
 ## 19. Display
 
-Speech has to appear somewhere. RimWorld offers the interaction log and nothing else for overhead
-text, so drawing above pawns is a Harmony patch (§10).
+**Interaction Bubbles is a hard dependency, and drawing is its job.**
 
-- Overhead bubbles, themable, with a length cap and a dismissal timer.
-- Interaction log entries, so dialogue is scrollable after the fact.
-- Compatibility with Bubbles if it is installed — it already solves overhead text, and fighting it
-  would be worse than deferring to it.
-- Response type (§9) decides audience and styling: a whisper is not drawn for the whole colony, and
-  a thought is drawn for nobody but the player.
+Bubbles already solves overhead speech well, is widely installed, and has settings players have
+tuned to taste — font, duration, opacity, hearing range. Writing a second implementation would mean
+a second set of controls doing the same job, and two bubbles per line for anyone running both.
+Depending on it is a smaller, better mod than competing with it.
+
+That makes this the smallest piece of the engine. Bubbles postfix-patches vanilla `PlayLog.Add`,
+accepts any `PlayLogEntry_Interaction`, and renders that entry's text above the initiator. So the
+entire bridge is: put a `PlayLogEntry_ArkhSpeech` into the play log.
+
+The consequences are all in our favour:
+
+- **No assembly reference to Bubbles, and no patch of our own.** We touch vanilla only, so a
+  Bubbles update cannot break us.
+- **The social log comes free.** The same entry is a real log entry, so dialogue is scrollable
+  after the fact without a second code path.
+- **Its hearing rules apply automatically.** Bubbles already declines to draw for a pawn nobody
+  could hear.
+
+The one thing we own is the text: `ToGameStringFromPOV_Worker` returns our line rather than a
+rulepack's. Note that is the *protected worker* — the public wrapper is not virtual.
+
+Deliberately not varied by point of view. Vanilla shows a different string to a pawn who could not
+hear it, and that distinction is real — but it belongs to the earshot model (§9), which decides who
+is a participant at all. Deciding it in two places is how the two come to disagree.
+
+Response types (§9) will need more than this: a whisper should reach one pawn and a thought none.
+That is P6's work, and it will shape who the entry names rather than how it is drawn.

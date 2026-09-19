@@ -9,8 +9,8 @@ Last updated: **2026-09-17**
 | | |
 |---|---|
 | Builds | **yes** — `.\build.ps1`, 0 warnings, 0 errors, `Arkh.dll` |
-| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 14 checks |
-| Dependencies | **Harmony only.** No RimTalk, no other mod. |
+| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 53 checks |
+| Dependencies | **Harmony and Interaction Bubbles.** No RimTalk. |
 | Loaded in RimWorld | **never** |
 | Repo | [EHtut/Rimtalk-Memories-](https://github.com/EHtut/Rimtalk-Memories-) — name now lags the mod |
 
@@ -23,7 +23,7 @@ Last updated: **2026-09-17**
 | A | P1 Core | **done, unverified** | Settings, budget, slots, catalogue, panel, harness. Never run in game. |
 | A | P2 Model client | **mostly built** | Mock + OpenAI-compatible working, 22 harness checks. Gemini, Player2 and a test-connection button remain. |
 | A | P3 Talk engine | **built, unverified** | Selection, scheduling, threading, parsing, diagnostics. Needed no Harmony. |
-| A | P4 Display | **next** | Lines are produced and logged; nothing draws them yet. |
+| A | P4 Display | **built, unverified** | A bridge, not a renderer: Bubbles draws, we publish to vanilla PlayLog. |
 | B | P5 Context and prompt | partly built | Age, gender, world lore done. Colony lore, persona, instruction slots not started. |
 | B | P6 Earshot and delivery | not started | |
 | C | P7 Memory core | not started | Wants P6's earshot for witness detection. |
@@ -56,13 +56,15 @@ The mod builds, depends on nothing but Harmony, and the harness passes 36 checks
 round trip through the mock provider, request shaping, response parsing and every failure branch.
 **No line of it has run in RimWorld.**
 
-What exists is a complete pipeline on paper: a prompt that can be composed and budgeted, a client
-that can send it, and an engine that decides who speaks, dispatches off the tick and parses what
-comes back. Lines are produced and written to the log. **Nothing draws them on screen yet** — that
-is P4, and it is the last piece before any of this is visible in a colony.
+**Phase A is complete.** The pipeline runs end to end on paper: a prompt composed and budgeted, a
+client that sends it, an engine that decides who speaks and parses the reply, and a display bridge
+that puts lines above colonists and in the social log.
 
-Notably, P3 needed **no Harmony patches at all**. Owning the pipeline means scheduling and
-selection are ours by construction rather than something to intercept.
+It shipped with **no Harmony patches at all**. Owning the pipeline makes scheduling and selection
+ours by construction, and display goes through vanilla `PlayLog` because that is where Interaction
+Bubbles already listens. Every patch avoided is a way RimWorld updates cannot break this.
+
+**Still never run in RimWorld.** Everything above is compiled and harness-checked, not observed.
 
 Two runtime-only bugs have been caught by the harness and none by the compiler, both the same
 family: `String.TrimEnd()` and `String.TrimEnd(char)` are .NET Core additions present in the
@@ -71,13 +73,14 @@ than .NET Framework 4.8 is a trap.
 
 ## Next action
 
-**P4 — display.** Everything upstream works; colonists produce lines and nothing shows them. This
-is the pillar that makes Phase A visible, and the natural point for the first in-game run.
+**The first in-game run.** Phase A is complete, so there is finally something to watch: set the
+provider to Mock, load a colony, and see whether colonists speak.
 
-Two items worth pulling in around it: the **test-connection button**
-([docs/specs/P2-model-client.md](docs/specs/P2-model-client.md)), because the only way to check a
-real key today is to load a colony; and replacing P3's **placeholder conversation radius** with
-P6's real earshot model.
+Worth building the **test-connection button** first
+([docs/specs/P2-model-client.md](docs/specs/P2-model-client.md)) so the same twenty-minute load can
+also check a real API key, rather than spending a second load on it.
+
+After that, Phase B — or P12, which depends on nothing past P2 and is a change of pace.
 
 ## Known gaps
 

@@ -137,15 +137,20 @@ the earshot question P6 answers.
 
 **Depends on:** P3. **Design:** [DESIGN.md](DESIGN.md) §19.
 
+Interaction Bubbles is a **hard dependency** and does the drawing. That turns this pillar from a
+rendering job into a bridge — see [DESIGN.md](DESIGN.md) §19 for why depending beats competing.
+
 ### Tasks
-- [ ] Overhead bubbles: themable, length-capped, dismissal timer
-- [ ] Interaction log entries, so dialogue is scrollable after the fact
-- [ ] Defer to Bubbles when it is installed rather than fighting it
-- [ ] Log every Harmony patch in [DESIGN.md](DESIGN.md) §10 as it lands
+- [x] `PlayLogEntry_ArkhSpeech` — a log entry carrying our text instead of a rulepack's
+- [x] Publish spoken lines to vanilla `PlayLog`, which is where Bubbles already listens
+- [x] Hard dependency declared in About.xml, plus a runtime warning if it is switched off
+- [x] Social-log entries come free from the same object
+- [x] No assembly reference to Bubbles and no Harmony patch, so its updates cannot break us
 
 ### Exit criteria
-1. Dialogue is readable above pawns and in the log.
-2. With Bubbles installed, one bubble appears, not two.
+1. Dialogue is readable above colonists and in the social log.
+2. Exactly one bubble per line.
+3. Disabling Bubbles leaves the log working and says so once, rather than falling silent.
 
 ---
 
