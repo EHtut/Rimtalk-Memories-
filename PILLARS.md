@@ -113,14 +113,17 @@ the earshot question P6 answers.
 **Depends on:** P2. **Design:** [DESIGN.md](DESIGN.md) §18.
 
 ### Tasks
-- [ ] Per-pawn state, built lazily; absence is normal
-- [ ] Eligibility checks, cheapest first
-- [ ] Selection weighted by chattiness and time since last spoken
-- [ ] Tick-driven scheduling with a player-set interval and an in-flight cap — every request costs
+- [x] Per-pawn state, built lazily; absence is normal, and pruned so dead pawns do not leak
+- [x] Eligibility checks, cheapest first, each rejection carrying a reason
+- [x] Selection weighted by how overdue a colonist is, scaled by chattiness
+- [x] Tick-driven scheduling with a player-set interval and an in-flight cap — every request costs
       money, so this is a spend control as much as a pacing one
-- [ ] Prompt assembly on the main thread, dispatch off it, results marshalled back
-- [ ] Response parsing against the `OutputContract` slot, tolerant of prose and code fences
-- [ ] Assembler walks `PromptCatalog` slots in order and respects the budget
+- [x] Prompt assembly on the main thread, dispatch off it, results marshalled back
+- [x] Response parsing, tolerant of prose, code fences and chat around the JSON
+- [x] Assembler walks `PromptCatalog` slots in order and respects the budget
+- [x] Core sections: system instruction and output contract, exempt from the budget
+- [x] Engine diagnostics in the panel's Live tab, including *why* nothing is happening
+- [ ] Real earshot rules in place of the placeholder radius — that is P6's job, not a gap here
 
 ### Exit criteria
 1. Colonists hold a conversation end to end against the mock provider.

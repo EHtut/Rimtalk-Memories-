@@ -135,6 +135,28 @@ namespace Arkh
 
             listing.GapLine();
 
+            // --- Conversations ----------------------------------------------------------
+            Header(listing, "Conversations");
+
+            listing.CheckboxLabeled("Colonists start conversations", ref Settings.TalkEnabled,
+                "Turn this off to stop all requests without unloading the mod.");
+
+            listing.Label($"At most one line per colonist every <b>{Settings.TalkIntervalSeconds}s</b>");
+            Settings.TalkIntervalSeconds = (int)listing.Slider(Settings.TalkIntervalSeconds, 5f, 600f);
+
+            listing.Label($"Requests in flight at once: <b>{Settings.MaxInFlight}</b>");
+            Settings.MaxInFlight = (int)listing.Slider(Settings.MaxInFlight, 1f, 10f);
+            listing.Label("<i>A spend control as much as a pacing one — every line is a paid "
+                          + "request.</i>");
+
+            listing.Label($"Conversation range: <b>{Settings.TalkRadius:0}</b> tiles");
+            Settings.TalkRadius = listing.Slider(Settings.TalkRadius, 2f, 40f);
+
+            listing.CheckboxLabeled("Allow talking to oneself", ref Settings.AllowMonologue,
+                "When nobody is close enough, let a colonist speak anyway.");
+
+            listing.GapLine();
+
             // --- Age --------------------------------------------------------------------
             Header(listing, "Speech by age");
             listing.CheckboxLabeled(

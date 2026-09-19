@@ -58,6 +58,31 @@ namespace Arkh.Settings
 
         public int TimeoutSeconds = 30;
 
+        // --- Conversations ----------------------------------------------------------------
+
+        public bool TalkEnabled = true;
+
+        /// <summary>
+        /// Minimum gap between one colonist's lines, scaled by their chattiness. This is a spend
+        /// control as much as a pacing one — every line is a paid request.
+        /// </summary>
+        public int TalkIntervalSeconds = 45;
+
+        /// <summary>
+        /// Requests allowed in flight at once. Low by default: a busy colony could otherwise open
+        /// a dozen at the same moment and the player would meet the bill before the dialogue.
+        /// </summary>
+        public int MaxInFlight = 2;
+
+        /// <summary>Whether a colonist with nobody nearby may talk to themselves.</summary>
+        public bool AllowMonologue = true;
+
+        /// <summary>
+        /// How close another colonist must be to join in. A placeholder for the real earshot model
+        /// — it knows nothing about walls or volume yet.
+        /// </summary>
+        public float TalkRadius = 12f;
+
         // --- Mock provider ----------------------------------------------------------------
 
         /// <summary>Simulated latency, so the rest of the mod meets realistic timing.</summary>
@@ -141,6 +166,12 @@ namespace Arkh.Settings
             Scribe_Values.Look(ref TimeoutSeconds, "timeoutSeconds", 30);
             Scribe_Values.Look(ref MockDelayMs, "mockDelayMs", 0);
             Scribe_Values.Look(ref MockFailureRate, "mockFailureRate", 0f);
+
+            Scribe_Values.Look(ref TalkEnabled, "talkEnabled", true);
+            Scribe_Values.Look(ref TalkIntervalSeconds, "talkIntervalSeconds", 45);
+            Scribe_Values.Look(ref MaxInFlight, "maxInFlight", 2);
+            Scribe_Values.Look(ref AllowMonologue, "allowMonologue", true);
+            Scribe_Values.Look(ref TalkRadius, "talkRadius", 12f);
 
             Scribe_Values.Look(ref EnableAgeVoice, "enableAgeVoice", true);
             Scribe_Values.Look(ref EnableGenderVoice, "enableGenderVoice", false);

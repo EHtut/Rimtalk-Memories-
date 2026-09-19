@@ -258,6 +258,13 @@ and varies by provider. Roughly four characters per token in English; CJK runs f
 presented to the player as what it is, a character budget, rather than a token estimate dressed up
 as precision.
 
+**Some sections are exempt.** The system instruction and the output contract are taken off the top
+in full, before anything competes for the rest, and they may push the total over its ceiling. That
+is the intended trade: a trimmed output contract makes the model answer in a shape the parser
+cannot read, losing *every* reply, where an overspend of a few hundred characters loses only a
+little money. Being merely first in the priority order is not enough — a small enough budget would
+still trim them. Exemptions are text the player cannot budget away, so they stay rare.
+
 Recomputed only when something changes, never per prompt. §13 is where that stops being enough.
 
 ## 13. Smart context

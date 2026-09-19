@@ -20,7 +20,14 @@ namespace Arkh.Budget
     /// </summary>
     public static class BudgetOrder
     {
-        /// <summary>Reserved for P5 recall. Nothing registers here yet.</summary>
+        /// <summary>
+        /// The instruction and the output contract. First, and effectively never squeezed: a
+        /// prompt missing its contract does not produce a worse line, it produces a reply our
+        /// parser cannot read at all.
+        /// </summary>
+        public const int CoreInstruction = 0;
+
+        /// <summary>Reserved for recall. Nothing registers here yet.</summary>
         public const int RecalledMemory = 10;
 
         public const int AgeVoice = 20;

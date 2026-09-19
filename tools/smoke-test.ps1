@@ -132,7 +132,16 @@ $settings.WorldLore = ("The Rim remembers what the colonists would rather forget
 $settings.MaleVoice = "Clipped and understated."
 $settings.FemaleVoice = "Direct, and slower to anger."
 
+# Essential sections (the instruction and the output contract) are taken off the top in full, so
+# the floor they impose is the one case where going over the ceiling is correct: a trimmed contract
+# loses every reply, where an overspend loses only money.
+$settings.TotalBudgetChars = 100000
+$settings.AssumedParticipants = 1
+$roomyTable = Get-Allocation
+$essentialFloor = $roomyTable['SystemInstruction'].Desired + $roomyTable['OutputContract'].Desired
+
 $overspends = @()
+$trimmedEssentials = @()
 $combinations = 0
 foreach ($total in 100, 250, 400, 700, 1200, 2000, 5000) {
     foreach ($pawns in 1, 3, 6) {
@@ -140,14 +149,26 @@ foreach ($total in 100, 250, 400, 700, 1200, 2000, 5000) {
         $settings.AssumedParticipants = $pawns
         $combinations++
         $a = Get-Allocation
+
         if ($null -eq $a['_committed']) {
             $overspends += "total=$total pawns=$pawns produced no allocation"
-        } elseif ($a['_committed'] -gt $total) {
-            $overspends += "total=$total pawns=$pawns committed $($a['_committed'])"
+            continue
+        }
+
+        foreach ($name in 'SystemInstruction', 'OutputContract') {
+            if ($a[$name].Allowance -lt $a[$name].Desired) {
+                $trimmedEssentials += "total=$total pawns=$pawns trimmed $name"
+            }
+        }
+
+        $ceiling = [Math]::Max($total, $essentialFloor)
+        if ($a['_committed'] -gt $ceiling) {
+            $overspends += "total=$total pawns=$pawns committed $($a['_committed']) over $ceiling"
         }
     }
 }
 Check "no overspend across $combinations budget/size combinations" ($overspends.Count -eq 0) ($overspends -join '; ')
+Check "the output contract is never trimmed, at any budget" ($trimmedEssentials.Count -eq 0) ($trimmedEssentials -join '; ')
 
 # --- 4. Squeezing takes from the lowest priority first ----------------------------------------
 Write-Host "`nSqueeze order"
@@ -159,8 +180,23 @@ $tight = Get-Allocation
 
 Check "world lore gives way when tight" ($tight['WorldLore'].Allowance -lt $roomy['WorldLore'].Allowance) `
       "roomy=$($roomy['WorldLore'].Allowance) tight=$($tight['WorldLore'].Allowance)"
-Check "age voice is protected ahead of lore" ($tight['AgeVoice'].Allowance -eq $roomy['AgeVoice'].Allowance) `
-      "roomy=$($roomy['AgeVoice'].Allowance) tight=$($tight['AgeVoice'].Allowance)"
+
+# The invariant is about the *fraction* each section gets of what it asked for, not absolutes.
+# A high-priority per-participant section cannot swallow the whole pool — it takes at most
+# remaining/participants per call — so integer division legitimately leaves crumbs that flow down
+# to lower-priority sections. What must always hold is that the higher priority is satisfied at
+# least as completely as the lower one.
+$ageShare  = $tight['AgeVoice'].Allowance  / [Math]::Max(1, $tight['AgeVoice'].Desired)
+$loreShare = $tight['WorldLore'].Allowance / [Math]::Max(1, $tight['WorldLore'].Desired)
+Check "age voice is satisfied more fully than lore when tight" ($ageShare -ge $loreShare) `
+      ("age={0:P1} of {1}, lore={2:P1} of {3}" -f $ageShare, $tight['AgeVoice'].Desired, $loreShare, $tight['WorldLore'].Desired)
+
+$settings.TotalBudgetChars = 60
+$starved = Get-Allocation
+Check "an impossible budget still ships the contract" ($starved['OutputContract'].Allowance -eq $starved['OutputContract'].Desired) `
+      "allowance=$($starved['OutputContract'].Allowance) desired=$($starved['OutputContract'].Desired)"
+Check "an impossible budget silences the optional blocks" ($starved['WorldLore'].Allowance -eq 0 -and $starved['AgeVoice'].Allowance -eq 0) `
+      "lore=$($starved['WorldLore'].Allowance) age=$($starved['AgeVoice'].Allowance)"
 
 # --- 5. JSON ----------------------------------------------------------------------------------
 Write-Host "`nJSON"
@@ -260,6 +296,64 @@ Check "no key is a calm state, not an error" (-not $tOai.GetProperty('Configured
 
 $local = [Activator]::CreateInstance($tOai, @('Ollama', 'http://localhost:11434/v1', '', $false))
 Check "a local server needs no key" ($tOai.GetProperty('Configured').GetValue($local)) "reported unconfigured"
+
+# --- 7. The response contract -------------------------------------------------------------------
+# Models wrap JSON in fences, chat before it, or ignore the format and just write the line. Every
+# one of those has been paid for, so every one of them has to degrade into something usable.
+Write-Host "`nResponse contract"
+$tContract = $asm.GetType('Arkh.Talk.ResponseContract')
+$parseReply = $tContract.GetMethod('Parse', $BF)
+
+function Read-Reply($text) { return $parseReply.Invoke($null, @($text, 'Ada')) }
+
+$clean = Read-Reply '{"lines":[{"speaker":"Ada","text":"Cold out."}]}'
+Check "reads the contracted shape" ($clean.Count -eq 1 -and $clean[0].Text -eq 'Cold out.') "count=$($clean.Count)"
+
+$fenced = Read-Reply "``````json`n{`"lines`":[{`"speaker`":`"Bo`",`"text`":`"Not again.`"}]}`n``````"
+Check "survives a code fence" ($fenced.Count -eq 1 -and $fenced[0].Speaker -eq 'Bo') "count=$($fenced.Count) speaker=$($fenced[0].Speaker)"
+
+$chatty = Read-Reply 'Sure! Here you go: {"lines":[{"speaker":"Ada","text":"Fine."}]} Hope that helps.'
+Check "survives prose around the JSON" ($chatty.Count -eq 1 -and $chatty[0].Text -eq 'Fine.') "got '$($chatty[0].Text)'"
+
+$multi = Read-Reply '{"lines":[{"speaker":"Ada","text":"You hear that?"},{"speaker":"Bo","text":"No."}]}'
+Check "reads a two-sided exchange in order" ($multi.Count -eq 2 -and $multi[1].Speaker -eq 'Bo') "count=$($multi.Count)"
+
+$prose = Read-Reply 'The freezer door is open again.'
+Check "plain prose is kept, not discarded" ($prose.Count -eq 1 -and $prose[0].Text -eq 'The freezer door is open again.') "count=$($prose.Count)"
+Check "plain prose is attributed to the initiator" ($prose.Count -eq 1 -and $prose[0].Speaker -eq 'Ada') "speaker=$($prose[0].Speaker)"
+
+$quoted = Read-Reply '{"lines":[{"speaker":"Ada","text":"\"Quoted speech.\""}]}'
+Check "surrounding quotes are stripped" ($quoted[0].Text -eq 'Quoted speech.') "got '$($quoted[0].Text)'"
+
+$empty = Read-Reply ''
+Check "an empty reply yields nothing" ($empty.Count -eq 0) "count=$($empty.Count)"
+
+$blankJson = Read-Reply '{"lines":[{"speaker":"Ada","text":"  "}]}'
+Check "a blank line is not spoken" ($blankJson.Count -eq 0) "count=$($blankJson.Count)"
+
+# --- 8. Prompt assembly --------------------------------------------------------------------------
+# Assembly needs a Map for world sections and a Pawn for per-pawn ones, neither of which exists
+# outside a running game. What can be checked here is the part that does not: that the core blocks
+# are declared into the right slots, and that the output contract the parser expects is the one the
+# prompt actually asks for.
+Write-Host "`nPrompt assembly"
+$tCore = $asm.GetType('Arkh.Prompt.CoreSections')
+$slotsByName = @{}
+foreach ($s in $T.Catalog.GetProperty('Sections', $BF).GetValue($null)) {
+    $slotsByName[$s.SectionName] = "$($s.Slot)"
+}
+Check "a system instruction is declared" ($slotsByName['SystemInstruction'] -eq 'SystemInstruction') "slot=$($slotsByName['SystemInstruction'])"
+Check "an output contract is declared" ($slotsByName['OutputContract'] -eq 'OutputContract') "slot=$($slotsByName['OutputContract'])"
+Check "age voice sits in pawn context" ($slotsByName['AgeVoice'] -eq 'PawnContext') "slot=$($slotsByName['AgeVoice'])"
+Check "world lore sits in world context" ($slotsByName['WorldLore'] -eq 'WorldContext') "slot=$($slotsByName['WorldLore'])"
+
+# The prompt and the parser are two halves of one bargain; this is the check that they still agree.
+$contractText = $tCore.GetField('DefaultContract', $BF).GetValue($null)
+$shapeFromPrompt = Read-Reply ($contractText.Substring($contractText.IndexOf('{')))
+Check "the contract we send is a shape the parser understands" ($null -ne $shapeFromPrompt) "parser rejected its own contract"
+Check "the contract names lines, speaker and text" (
+    $contractText.Contains('"lines"') -and $contractText.Contains('"speaker"') -and $contractText.Contains('"text"')
+) "contract text drifted from the parser"
 
 Write-Host ""
 if ($script:failures -eq 0) {

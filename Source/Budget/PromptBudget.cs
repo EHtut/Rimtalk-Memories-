@@ -118,8 +118,25 @@ namespace Arkh.Budget
 
             int remaining = Total;
 
+            // Essential sections come off the top, in full, before anything competes for the rest.
+            // They can push the total over budget, and that is the intended trade: a trimmed output
+            // contract loses every reply, where an overspend of a few hundred characters loses
+            // nothing but money. Being merely first in the priority order would not guarantee this.
             foreach (var declaration in Ordered())
             {
+                if (!declaration.Essential) continue;
+
+                int desired = declaration.SafeDesired();
+                Allowances[declaration.SectionName] = desired;
+                remaining -= desired * Multiplier(declaration);
+            }
+
+            if (remaining < 0) remaining = 0;
+
+            foreach (var declaration in Ordered())
+            {
+                if (declaration.Essential) continue;
+
                 int desired = declaration.SafeDesired();
                 int multiplier = Multiplier(declaration);
 

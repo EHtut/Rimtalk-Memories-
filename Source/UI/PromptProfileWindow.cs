@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Arkh.Budget;
 using Arkh.Prompt;
+using Arkh.Talk;
 using Arkh.Util;
 using UnityEngine;
 using Verse;
@@ -202,11 +203,48 @@ namespace Arkh.UI
 
         private static void DrawLive(Listing_Standard listing)
         {
-            Header(listing, "Built blocks");
+            Header(listing, "The talk engine");
 
-            Note(listing, "Counts fill in once the talk engine is generating prompts. Until then "
-                          + "these stay at zero, and that is expected rather than a fault — see "
-                          + "STATUS.md for which pillar lands next.");
+            listing.Label($"Requests: <b>{TalkEngine.Requests}</b>   "
+                          + $"failures: <b>{TalkEngine.Failures}</b>   "
+                          + $"in flight: <b>{TalkEngine.InFlight}</b>");
+
+            listing.Label($"Tokens this session: <b>{TalkEngine.PromptTokens}</b> prompt, "
+                          + $"<b>{TalkEngine.CompletionTokens}</b> reply");
+
+            // The reason nothing is happening is the single most useful thing this panel can say.
+            // Silence has a dozen causes that look identical from the outside.
+            if (!string.IsNullOrEmpty(TalkEngine.LastBlockReason))
+            {
+                listing.Label("Not starting anything: <color=#FFCC66>" + TalkEngine.LastBlockReason + "</color>");
+            }
+
+            if (TalkEngine.LastFailure != null)
+            {
+                listing.Label("Last failure: <color=#FF8888>" + TalkEngine.LastFailure.Summary + "</color>");
+                if (!string.IsNullOrEmpty(TalkEngine.LastFailure.Detail))
+                {
+                    Note(listing, TalkEngine.LastFailure.Detail);
+                }
+            }
+
+            listing.Gap(6f);
+            Header(listing, "Recent lines");
+
+            if (TalkEngine.Recent.Count == 0)
+            {
+                Note(listing, "Nothing said yet.");
+            }
+            else
+            {
+                foreach (var line in TalkEngine.Recent)
+                {
+                    listing.Label("   <b>" + line.Speaker + "</b>: " + line.Text);
+                }
+            }
+
+            listing.GapLine(12f);
+            Header(listing, "Built blocks");
 
             listing.Gap(6f);
 

@@ -59,6 +59,19 @@ namespace Arkh.Prompt
         public bool PerParticipant;
 
         /// <summary>
+        /// Exempt from the character budget: always emitted in full, and taken off the top before
+        /// anything else is allocated.
+        ///
+        /// For sections where a trimmed version is worse than none. The output contract is the
+        /// case that matters: cut it short and the model answers in a shape the parser cannot
+        /// read, so every reply is lost rather than merely plainer. Being first in the priority
+        /// order is not enough — a small enough budget would still trim it.
+        ///
+        /// Use sparingly. Every exempt section is text the player cannot budget away.
+        /// </summary>
+        public bool Essential;
+
+        /// <summary>
         /// Characters this section would like. Defaults to the longest text it could emit, which
         /// is the honest answer for a section bounded by authored text.
         /// </summary>

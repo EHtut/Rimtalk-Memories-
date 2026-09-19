@@ -125,6 +125,8 @@ namespace Arkh.Prompt
 
         private static void DeclareAll()
         {
+            CoreSections.Declare();
+
             Declare(new PromptSection
             {
                 SectionName = AgeSection,
