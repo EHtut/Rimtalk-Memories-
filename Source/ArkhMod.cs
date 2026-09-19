@@ -65,19 +65,34 @@ namespace Arkh
         /// </summary>
         private ConnectionTest.Result _testResult = ConnectionTest.Current;
 
+        /// <summary>
+        /// Set when drawing throws. The page then shows the message instead of trying again every
+        /// frame — a page that reports what went wrong is worth far more than one that is merely
+        /// blank, and this is the only copy of the error the player can reach without the log.
+        /// </summary>
+        private string _drawFailure;
+
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            // Everything that can change underneath this window is settled here, on Layout only,
-            // so the frame's two passes see identical state.
-            if (Event.current.type == EventType.Layout)
+            // Applied here rather than inside the FloatMenuOption, because that callback runs
+            // during the float menu's own event — mutating what this page draws from inside
+            // another window's event is how a page ends up half-drawn.
+            //
+            // Deliberately NOT gated on EventType.Layout. RimWorld does not guarantee a mod
+            // settings page sees one, and gating on it meant the dropdown silently did nothing.
+            if (_pendingProvider.HasValue)
             {
-                if (_pendingProvider.HasValue)
-                {
-                    Settings.Provider = _pendingProvider.Value;
-                    _pendingProvider = null;
-                }
+                Settings.Provider = _pendingProvider.Value;
+                _pendingProvider = null;
+                _drawFailure = null;
+            }
 
-                _testResult = ConnectionTest.Current;
+            _testResult = ConnectionTest.Current;
+
+            if (_drawFailure != null)
+            {
+                DrawFailurePage(inRect);
+                return;
             }
 
             var viewRect = new Rect(0f, 0f, inRect.width - 20f, _contentHeight);
@@ -93,9 +108,10 @@ namespace Arkh
             catch (Exception ex)
             {
                 // An exception escaping between Begin and End leaves Unity's GUI stack unbalanced,
-                // which takes the entire Options window down until the game is restarted — a far
-                // worse outcome than one broken page. OnGUI runs every frame, so log once.
-                ArkhLog.WarnOnce("The settings page threw while drawing: " + ex, 0xA9C1);
+                // which takes the whole Options window down until the game restarts — far worse
+                // than one broken page. Catch it, show it, and stop retrying.
+                _drawFailure = ex.ToString();
+                ArkhLog.Error("The settings page threw while drawing: " + ex);
             }
             finally
             {
@@ -107,8 +123,43 @@ namespace Arkh
             base.DoSettingsWindowContents(inRect);
         }
 
+        /// <summary>
+        /// Shown in place of the settings when drawing has thrown. Plain widgets only — whatever
+        /// broke the real page must not be able to break this one too.
+        /// </summary>
+        private void DrawFailurePage(Rect inRect)
+        {
+            Text.Font = GameFont.Medium;
+            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 30f), "Arkh — settings failed to draw");
+            Text.Font = GameFont.Small;
+
+            var message = new Rect(inRect.x, inRect.y + 40f, inRect.width, inRect.height - 90f);
+            Widgets.Label(message, _drawFailure);
+
+            var retry = new Rect(inRect.x, inRect.yMax - 40f, 200f, 32f);
+            if (Widgets.ButtonText(retry, "Try again"))
+            {
+                _drawFailure = null;
+            }
+
+            var copy = new Rect(retry.xMax + 10f, inRect.yMax - 40f, 240f, 32f);
+            if (Widgets.ButtonText(copy, "Copy error to clipboard"))
+            {
+                GUIUtility.systemCopyBuffer = _drawFailure;
+            }
+        }
+
         private void DrawSettings(Listing_Standard listing)
         {
+            if (Settings == null)
+            {
+                // Every line below dereferences this. Saying so once beats a wall of identical
+                // null-reference stacks.
+                listing.Label("Settings failed to load. Check the log for an error from Arkh "
+                              + "during startup, and report it — nothing on this page will work "
+                              + "until that is fixed.");
+                return;
+            }
 
             listing.CheckboxLabeled(
                 "Enable Arkh",
