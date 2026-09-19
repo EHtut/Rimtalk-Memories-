@@ -34,8 +34,18 @@ as an error — so a red harness means stop, not proceed.
 ### 0.3 Mod Options → Arkh, still at the main menu
 
 - [ ] The settings page opens and scrolls without errors in the log
+- [ ] **Cycle the provider dropdown through every entry**, including back and forth between one
+      that needs a key (OpenAI) and one that does not (LM Studio, Ollama). The page must keep
+      working each time.
 - [ ] **Test connection** with provider **Mock** → green, and reports a parsed line
 - [ ] **Test connection** with your real provider and key → green
+
+> The dropdown check is there because it broke once. Selecting LM Studio took the whole Options
+> window down: the provider changed during the float menu's event, between this window's layout and
+> repaint passes, so repaint drew a different number of controls than layout had registered and
+> Unity threw. Provider changes are now deferred to the next layout pass, and the page is wrapped
+> so that no exception can ever leave the GUI stack unbalanced again — the worst case is now one
+> ugly frame and a line in the log.
 
 That second one is the point of the button. It sends the real instruction and output contract and
 reads the reply back through the real parser, so a green result means this provider *and this

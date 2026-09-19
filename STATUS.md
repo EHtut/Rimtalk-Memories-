@@ -9,7 +9,7 @@ Last updated: **2026-09-17**
 | | |
 |---|---|
 | Builds | **yes** — `.\build.ps1`, 0 warnings, 0 errors, `Arkh.dll` |
-| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 58 checks |
+| Smoke test | **passing** — `.\tools\smoke-test.ps1`, 60 checks |
 | Dependencies | **Harmony and Interaction Bubbles.** No RimTalk. |
 | Loaded in RimWorld | **never** |
 | Repo | [EHtut/Rimtalk-Memories-](https://github.com/EHtut/Rimtalk-Memories-) — name now lags the mod |

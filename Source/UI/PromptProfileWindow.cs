@@ -67,12 +67,25 @@ namespace Arkh.UI
             var listing = new Listing_Standard();
             listing.Begin(view);
 
-            if (_tab == Tab.Profile) DrawProfile(listing);
-            else DrawLive(listing);
-
-            _contentHeight = listing.CurHeight + 40f;
-            listing.End();
-            Widgets.EndScrollView();
+            try
+            {
+                if (_tab == Tab.Profile) DrawProfile(listing);
+                else DrawLive(listing);
+            }
+            catch (Exception ex)
+            {
+                // This panel renders text produced by section providers, any of which could throw.
+                // An exception escaping between Begin and End leaves Unity's GUI stack unbalanced
+                // and takes the whole window stack down with it, so it stops here. OnGUI runs every
+                // frame, hence warn-once.
+                ArkhLog.WarnOnce("The prompt profile panel threw while drawing: " + ex, 0xA9C2);
+            }
+            finally
+            {
+                _contentHeight = listing.CurHeight + 40f;
+                listing.End();
+                Widgets.EndScrollView();
+            }
         }
 
         // --- Profile -------------------------------------------------------------------------

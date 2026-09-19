@@ -4,6 +4,7 @@ using Arkh.Budget;
 using Arkh.Context;
 using Arkh.Model;
 using Arkh.Settings;
+using Arkh.Util;
 using Arkh.UI;
 using UnityEngine;
 using Verse;
@@ -43,13 +44,71 @@ namespace Arkh
             PromptBudget.Invalidate();
         }
 
+        /// <summary>
+        /// A provider chosen from the dropdown, applied at the start of the next layout pass.
+        ///
+        /// Not applied immediately, and this is the whole reason the settings page used to break.
+        /// A FloatMenuOption's action runs during the float menu's own event handling — after this
+        /// window's Layout pass but before its Repaint. Changing the provider there means repaint
+        /// draws a different number of controls than layout registered (LM Studio has no API key
+        /// field, OpenAI does), and Unity's IMGUI throws a control-count mismatch. Deferring to the
+        /// next Layout keeps both passes of any single frame in agreement.
+        /// </summary>
+        private ModelProvider? _pendingProvider;
+
+        /// <summary>
+        /// The connection-test result, settled once per frame.
+        ///
+        /// A worker thread swaps it at any moment, including between Layout and Repaint, which
+        /// would change how many labels get drawn part-way through a frame — the same fault as
+        /// above, arriving from a different direction.
+        /// </summary>
+        private ConnectionTest.Result _testResult = ConnectionTest.Current;
+
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            // Everything that can change underneath this window is settled here, on Layout only,
+            // so the frame's two passes see identical state.
+            if (Event.current.type == EventType.Layout)
+            {
+                if (_pendingProvider.HasValue)
+                {
+                    Settings.Provider = _pendingProvider.Value;
+                    _pendingProvider = null;
+                }
+
+                _testResult = ConnectionTest.Current;
+            }
+
             var viewRect = new Rect(0f, 0f, inRect.width - 20f, _contentHeight);
             Widgets.BeginScrollView(inRect, ref _scroll, viewRect);
 
             var listing = new Listing_Standard();
             listing.Begin(viewRect);
+
+            try
+            {
+                DrawSettings(listing);
+            }
+            catch (Exception ex)
+            {
+                // An exception escaping between Begin and End leaves Unity's GUI stack unbalanced,
+                // which takes the entire Options window down until the game is restarted — a far
+                // worse outcome than one broken page. OnGUI runs every frame, so log once.
+                ArkhLog.WarnOnce("The settings page threw while drawing: " + ex, 0xA9C1);
+            }
+            finally
+            {
+                _contentHeight = listing.CurHeight + 40f;
+                listing.End();
+                Widgets.EndScrollView();
+            }
+
+            base.DoSettingsWindowContents(inRect);
+        }
+
+        private void DrawSettings(Listing_Standard listing)
+        {
 
             listing.CheckboxLabeled(
                 "Enable Arkh",
@@ -85,7 +144,7 @@ namespace Arkh
                 {
                     var captured = provider;
                     options.Add(new FloatMenuOption(ModelProviders.For(captured).DisplayName,
-                        () => Settings.Provider = captured));
+                        () => _pendingProvider = captured));
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
@@ -129,7 +188,8 @@ namespace Arkh
             var testRow = listing.GetRect(34f);
             testRow.width = Mathf.Min(220f, testRow.width);
 
-            if (ConnectionTest.Running)
+            // Read from the frame's snapshot, not the live value, for the same reason as above.
+            if (_testResult.Status == ConnectionTest.State.Running)
             {
                 Widgets.ButtonText(testRow, "Testing…", active: false);
             }
@@ -142,7 +202,7 @@ namespace Arkh
                 + "the reply back through the real parser. It answers whether this provider and "
                 + "model will actually produce usable speech — not merely whether they are reachable.");
 
-            var test = ConnectionTest.Current;
+            var test = _testResult;
             if (!string.IsNullOrEmpty(test.Summary))
             {
                 string colour = test.Status == ConnectionTest.State.Succeeded ? "#88DD88"
@@ -261,11 +321,6 @@ namespace Arkh
                           + $"{Settings.TotalBudgetChars} characters. Open the injection profile for "
                           + "the breakdown.</i>");
 
-            _contentHeight = listing.CurHeight + 40f;
-            listing.End();
-            Widgets.EndScrollView();
-
-            base.DoSettingsWindowContents(inRect);
         }
 
         private static void Header(Listing_Standard listing, string text)

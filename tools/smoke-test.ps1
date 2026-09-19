@@ -379,6 +379,35 @@ Check "takes def, initiator, recipient and the spoken line" ($null -ne $ctor) "n
 $tDisplay = $asm.GetType('Arkh.Display.SpeechDisplay')
 Check "display wiring is idempotent" ($null -ne $tDisplay.GetMethod('Wire', $BF)) "no Wire method"
 
+# --- 9b. Every provider is describable ------------------------------------------------------------
+# The settings page calls For() on whatever is selected. A missing switch case, or a null returned
+# for one member, breaks the page for that provider only — which is exactly the shape of bug that
+# hides until someone picks the unlucky entry.
+Write-Host "`nProviders"
+$tProviders = $asm.GetType('Arkh.Model.ModelProviders')
+$allProviders = $tProviders.GetProperty('All', $BF).GetValue($null)
+$forMethod = $tProviders.GetMethod('For', $BF)
+
+$badProviders = @()
+foreach ($p in $allProviders) {
+    $pinfo = $forMethod.Invoke($null, @($p))
+    if ($null -eq $pinfo) { $badProviders += "$p returned null"; continue }
+    if ([string]::IsNullOrWhiteSpace($pinfo.DisplayName)) { $badProviders += "$p has no display name" }
+    if (-not $pinfo.KeyRequired -and [string]::IsNullOrEmpty($pinfo.BaseUrl) -and "$p" -ne 'Mock' -and "$p" -ne 'Custom') {
+        $badProviders += "$p needs no key and has no base URL"
+    }
+}
+Check "every provider describes itself ($($allProviders.Count) of them)" ($badProviders.Count -eq 0) ($badProviders -join '; ')
+
+$unbuildable = @()
+foreach ($p in $allProviders) {
+    $settings.Provider = $p
+    $c = $tProviders.GetMethod('Create', $BF).Invoke($null, @($settings))
+    if ($null -eq $c) { $unbuildable += "$p" }
+}
+Check "every provider builds a client" ($unbuildable.Count -eq 0) ($unbuildable -join '; ')
+$settings.Provider = 0
+
 # --- 10. End to end, through the connection test --------------------------------------------------
 # The widest check here: builds the real instruction and contract, sends them through a real client,
 # and reads the reply back through the real parser. Against the mock that is the whole pipeline bar
